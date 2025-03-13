@@ -31,6 +31,8 @@
 #include <map>
 #include <thread>
 #include <fstream>
+#include <cassert>
+#include <cstdint>
 
 // Project generated header for config macro nad variables
 #include "config.hh"

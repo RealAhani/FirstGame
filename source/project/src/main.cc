@@ -1,267 +1,213 @@
-/*
- * Copyright (C) 2024 RealAhani - All Rights Reserved
- * You may use, distribute and modify this code under the
- * terms of the MIT license, which unfortunately won't be
- * written for another century.
- * You should have received a copy of the MIT license with
- * this file.
- */
-
-// #include <string>
-// #include <fstream>
-// #include <chrono>
-// #include <mutex>
-// #include <algorithm>
-// #include <map>
-
-
-// // box2d headers
-// #include <box2d/box2d.h>
-// #include <box2d/types.h>
-// #include <box2d/base.h>
-// #include <box2d/math_functions.h>
-// #include <box2d/id.h>
-// #include <box2d/collision.h>
-
-
-// // raylib headers
-// #include <raylib.h>
-// #include <raymath.h>
-// #include "config.hh"
-int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
+// goal: check an expresion in runtime if not android
+// note: pass a true condition that you need like percent>100 fail
+void checkAtRuntime(bool faildCondition, std::string const & errMsg) noexcept
 {
-    // benchmark is activate from presets and with PROFILE or
-    // PROFILE_SCOP macro`s .
-    // PROFILE();
-    //     using namespace std::string_literals;
-    //     using namespace myproject::cmake;
-    //     // __________ Project Informations __________
-    // #if (MYOS == 1)                                   // OS is Windows
-    //     mloge::print("WIN"s);
-    // #elif (MYOS == 2)                                 // OS is GNU/Linux
-    //     mloge::print("LINUX"s);
-    // #elif (MYOS == 3)                                 // OS is OSX
-    //     mloge::print("MAC"s);
-    // #endif
-
-    //     mloge::print(myproject::cmake::projectName);  // Project-name!
-    //     mloge::print(myproject::cmake::projectVersion);  // Project-version!
-    // __________ Project Informations __________
-
-    // Raylib window init
-    InitWindow(0, 0, "Test");
-    ToggleFullscreen();
-
-    // Window properties
-    [[maybe_unused]]
-    int const width  = {GetScreenWidth()};
-    int const height = {GetScreenHeight()};
-    bool      isQuit = {false};
-
-    // Physics related values for box2d (box2d-related)
-    float const squerWidth  = {50.f};
-    float const squerHeight = {50.f};
-    float const squerX      = {800.f};
-    float const squerY      = {(height / 2.f) - 500.f};
-    float const rectWidth   = {5000.f};
-    float const rectHeight  = {50.f};
-    float const rectX       = {0.f};
-    float const rectY       = {(height / 2.f)};
-    float const rectDec     = {10.f};
-
-    // box2d init of the world of the game (box2d-related)
-    b2WorldDef   worldDef = {b2DefaultWorldDef()};
-    b2Vec2 const gravity  = {-5.f, -10.f};
-    worldDef.gravity      = gravity;
-    b2WorldId worldID     = {b2CreateWorld(&worldDef)};
-    worldDef.enableSleep  = false;
-
-    // Creatig a ground (box2d-related)
-    b2BodyDef groundDef = {b2DefaultBodyDef()};
-    groundDef.position  = b2Vec2 {-rectX, -rectY};
-    groundDef.type      = b2_staticBody;
-    groundDef.rotation  = b2MakeRot(rectDec * DEG2RAD);
-
-    b2BodyId const groundBodyId = {b2CreateBody(worldID, &groundDef)};
-    b2Polygon const groundShape = {
-        b2MakeBox(rectWidth / 2.f, rectHeight / 2.f)};
-    b2ShapeDef groundShapeDef = {b2DefaultShapeDef()};
-    // Mass is not need for static object
-    groundShapeDef.friction    = 0.3f;
-    groundShapeDef.restitution = 0.7f;
-    b2CreatePolygonShape(groundBodyId, &groundShapeDef, &groundShape);
-
-    // Ground 2 (box2d-related)
-    b2BodyDef groundDef2 = {b2DefaultBodyDef()};
-    groundDef2.position  = b2Vec2 {-(rectX + 1400), -(rectY - 300)};
-    groundDef2.type      = b2_staticBody;
-    groundDef2.rotation  = b2MakeRot(75.f * DEG2RAD);
-
-    b2BodyId const groundBodyId2 = {b2CreateBody(worldID, &groundDef2)};
-    b2Polygon const groundShape2 = {
-        b2MakeBox(rectWidth / 2.f, rectHeight / 2.f)};
-    b2ShapeDef groundShapeDef2 = {b2DefaultShapeDef()};
-    // Mass is not need for static object
-    groundShapeDef2.friction    = 0.3f;
-    groundShapeDef2.restitution = 0.7f;
-    b2CreatePolygonShape(groundBodyId2, &groundShapeDef2, &groundShape2);
-
-    // Create a dynamic box (box2d-related)
-    b2BodyDef boxDef = {b2DefaultBodyDef()};
-    boxDef.position  = b2Vec2 {-squerX, -squerY};
-    boxDef.type      = b2_dynamicBody;
-    boxDef.rotation  = b2MakeRot(30.f * DEG2RAD);
-
-    b2BodyId const  boxBodyId = {b2CreateBody(worldID, &boxDef)};
-    b2Polygon const boxShape  = {
-        b2MakeBox(squerWidth / 2.f, squerHeight / 2.f)};
-    b2ShapeDef boxShapeDef = {b2DefaultShapeDef()};
-    boxShapeDef.density    = 1.f;
-    boxShapeDef.friction   = 0.7f;
-    b2CreatePolygonShape(boxBodyId, &boxShapeDef, &boxShape);
-
-    // Simulating setting (box2d-related)
-    SetTargetFPS(GetMonitorRefreshRate(0));
-    float const  timeStep     = {1.f / 15.f};  // 60HZ
-    int8_t const subStepCount = {3};
-
-    [[maybe_unused]]
-    bool const fex = FileExists("resource/TEST.txt");
-    // std::cout << fex << "dddddddddddddddddddddddddddddddd]\n";
-    std::string const str {LoadFileText("resource/TEST.txt")};
-
-    // Main loop
-    while (!WindowShouldClose() && !isQuit)
+#ifdef DEBUG
+    if (myproject::cmake::platform != "Android" && faildCondition)
     {
-        // PROFILE_SCOPE("LOOP");
-        // Input managment with raylib
-        if (IsKeyPressed(KEY_ESCAPE)) [[unlikely]]
-        {
-            isQuit = true;
-        }
-        // Update world state (box2d-related)
-        b2World_Step(worldID, timeStep, subStepCount);
-
-        // Rendering
-        ClearBackground(BLACK);
-        BeginDrawing();
-        DrawFPS(0, 10);
-        b2Vec2 const boxPos {b2Body_GetPosition(boxBodyId)};
-        b2Vec2 const groundPos {b2Body_GetPosition(groundBodyId)};
-        b2Vec2 const groundPos2 {b2Body_GetPosition(groundBodyId2)};
-
-        // Draw a dynamic box
-        DrawRectanglePro(Rectangle {.x      = -boxPos.x,
-                                    .y      = -boxPos.y,
-                                    .width  = squerWidth,
-                                    .height = squerHeight},
-                         Vector2 {.x = (squerWidth / 2.f),
-                                  .y = (squerHeight / 2.f)},
-                         b2Rot_GetAngle(b2Body_GetRotation(boxBodyId)) *
-                             RAD2DEG,
-                         RED);
-
-        // Draw the ground as a box
-        DrawRectanglePro(Rectangle {.x      = -groundPos.x,
-                                    .y      = -groundPos.y,
-                                    .width  = rectWidth,
-                                    .height = rectHeight},
-                         Vector2 {.x = (rectWidth / 2),
-                                  .y = (rectHeight / 2)},
-                         b2Rot_GetAngle(b2Body_GetRotation(groundBodyId)) *
-                             RAD2DEG,
-                         GREEN);
-
-        // Draw the second ground
-        DrawRectanglePro(Rectangle {.x      = -groundPos2.x,
-                                    .y      = -groundPos2.y,
-                                    .width  = rectWidth,
-                                    .height = rectHeight},
-                         Vector2 {.x = (rectWidth / 2),
-                                  .y = (rectHeight / 2)},
-                         b2Rot_GetAngle(b2Body_GetRotation(groundBodyId2)) *
-                             RAD2DEG,
-                         GREEN);
-
-
-        DrawText(str.c_str(), width / 2, height / 2, 44, RAYWHITE);
-
-        EndDrawing();
+        std::cerr << errMsg << '\n';
+        assert(!faildCondition);
     }
-    // Cleaning up and bye
-    b2DestroyWorld(worldID);
-    worldID = b2_nullWorldId;
-    CloseWindow();
-    return 0;
+#endif  // DEBUG
 }
 
-// // If this is a window app and WinMain is needed
-// // #include <windows.h>
-// // int WINAPI WinMain(HINSTANCE hInstance,
-// //                    HINSTANCE hPrevInstance,
-// //                    LPSTR     lpCmdLine,
-// //                    int       nCmdShow)
-// // {
-// //     MessageBox(nullptr, "Hello, World!", "My First WinMain", MB_OK);
+// goal: calculate position and size of object based on desired percentage of parent
+// cordinate note: x and y should be 0<n<100 note: widthPercent and heightPercent
+// calculate based on reminding space of parent width and height so if you say 100 it
+// fill reminding space of width
+Rectangle placeRelative(Rectangle const & parentInfo,
+                        uint8_t const     xPercent,
+                        uint8_t const     yPercent,
+                        uint8_t const     widthPercent,
+                        uint8_t const     heightPercent) noexcept
+{
+    // bounds checking on input args
+    // debug only
+    checkAtRuntime((xPercent > 100 || yPercent > 100 || widthPercent > 100 ||
+                    heightPercent > 100),
+                   "Placement Relative inputs should be 0<n<100 in percentage "
+                   "(int)");
 
-// //     return 0;
-// // }
+    float const newX = static_cast<float>(parentInfo.x + parentInfo.width) *
+                       xPercent / 100.f;
+    float const newY = static_cast<float>(parentInfo.y + parentInfo.height) *
+                       yPercent / 100.f;
+    float const newW = (static_cast<float>(parentInfo.width) - newX) * widthPercent / 100.f;
+    float const newH = (static_cast<float>(parentInfo.height) - newY) *
+                       heightPercent / 100.f;
+    return Rectangle {.x = newX, .y = newY, .width = newW, .height = newH};
+}
 
+struct gridInfo
+{
+    Rectangle rect;
+    Vector2   cellSize;
+    uint8_t   columnCount;
+    uint8_t   rowCount;
+};
 
-// #include "raylib.h"
+// goal: initilizer function for gridInfo object
+// note: col and row should be bigger than 2
+gridInfo createGrid(Rectangle const & gridRect,
+                    uint8_t const     columnCount = 2,
+                    uint8_t const     rowCount    = 2)
+{
+    // col and row should be bigger than 2X2
+    checkAtRuntime((columnCount < 2 || rowCount < 2),
+                   "column and row should be bigger than 2");
+    return gridInfo {.rect        = gridRect,
+                     .cellSize    = Vector2 {gridRect.width / columnCount,
+                                          gridRect.height / rowCount},
+                     .columnCount = columnCount,
+                     .rowCount    = rowCount};
+}
 
-// //------------------------------------------------------------------------------------
-// // Program main entry point
-// //------------------------------------------------------------------------------------
-// int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
-// {
-//     // Initialization
-//     //--------------------------------------------------------------------------------------
-//     int const screenWidth  = 800;
-//     int const screenHeight = 450;
+static void draw2DGrid(gridInfo const & grid, Color const lineColor) noexcept
+{
+    // draw in between lines based on col and row
+    // drawing row lines
+    float yOffset {grid.rect.y};
+    for (unsigned int i {}; i <= grid.rowCount; ++i)
+    {
+        DrawLineV(Vector2 {grid.rect.x, yOffset},
+                  Vector2 {grid.rect.width + grid.rect.x, yOffset},
+                  lineColor);
+        yOffset += grid.cellSize.y;
+        // yOffset = std::clamp<float>(yOffset, 0, static_cast<float>(gridHeight));
+    }
+    // drawing column lines
+    float xOffset {grid.rect.x};
+    for (unsigned int i {}; i <= grid.columnCount; ++i)
+    {
+        DrawLineV(Vector2 {xOffset, grid.rect.y},
+                  Vector2 {xOffset, grid.rect.height + grid.rect.y},
+                  lineColor);
+        xOffset += grid.cellSize.x;
+        // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
+    }
+}
 
-//     InitWindow(screenWidth,
-//                screenHeight,
-//                "raylib [core] example - keyboard input");
+Rectangle whereClicked(float const     offsetX,
+                       float const     offsetY,
+                       Vector2 const & position,
+                       bool const      debugDraw = false) noexcept
+{
+    int const tempRemX = (static_cast<int>(position.x) / static_cast<int>(offsetX));
+    int       x1 {};
+    if (tempRemX == 1)
+    {
+        x1 = static_cast<int>(offsetX);
+    }
+    else if (tempRemX < 1)
+    {
+        x1 = 0;
+    }
+    // its zero
+    else
+    {
+        x1 = tempRemX * static_cast<int>(offsetX);
+    }
 
-//     Vector2 ballPosition = {screenWidth / 2.f, screenHeight / 2.f};
+    int       y1 {};
+    int const tempRemY = (static_cast<int>(position.y) / static_cast<int>(offsetY));
+    if (tempRemY == 1)
+    {
+        y1 = static_cast<int>(offsetY);
+    }
+    else if (tempRemY < 1)
+    {
+        y1 = 0;
+    }
+    else
+    {
+        y1 = tempRemY * static_cast<int>(offsetY);
+    }
+    if (debugDraw)
+    {
+        DrawRectangleRec(Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY}, RAYWHITE);
+        DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
+        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + offsetY) / 1.f}, 10, RED);
+        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f, y1 / 1.f}, 10, RED);
+        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f, (y1 + offsetY) / 1.f}, 10, RED);
+        DrawCircleLinesV(position, 5, YELLOW);
+    }
+    return Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY};
+}
+// Define the operator== function outside the class
+bool operator==(Rectangle const & lhs, Rectangle const & rhs)
+{
+    return (lhs.x == rhs.x && lhs.y == rhs.y);
+}
+int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
+{
+    InitWindow(0, 0, "Test");
+    ToggleFullscreen();
+    auto const             height   = GetScreenHeight();
+    auto const             width    = GetScreenWidth();
+    auto const             fps      = GetMonitorRefreshRate(0);
+    int const              row      = 60;
+    int const              column   = 90;
+    auto const             offsety  = static_cast<float>(height) / row;
+    auto const             offsetx  = static_cast<float>(width) / column;
+    auto const             gridRect = placeRelative(Rectangle {0,
+                                                   0,
+                                                   static_cast<float>(width),
+                                                   static_cast<float>(height)},
+                                        0,
+                                        0,
+                                        100,
+                                        100);
+    auto const             gridinfo = createGrid(gridRect, column, row);
+    std::vector<Rectangle> rects {};
+    rects.reserve(1000);
+    Vector2 mouse_pos {};
+    SetTargetFPS(fps);
 
-//     SetTargetFPS(60);  // Set our game to run at 60 frames-per-second
-//     //--------------------------------------------------------------------------------------
+    bool isEnd {false};
+    bool canRegister {false};
 
-//     // Main game loop
-//     while (!WindowShouldClose())  // Detect window close button or ESC key
-//     {
-//         // Update
-//         //----------------------------------------------------------------------------------
-//         if (IsKeyDown(KEY_RIGHT))
-//             ballPosition.x += 2.0f;
-//         if (IsKeyDown(KEY_LEFT))
-//             ballPosition.x -= 2.0f;
-//         if (IsKeyDown(KEY_UP))
-//             ballPosition.y -= 2.0f;
-//         if (IsKeyDown(KEY_DOWN))
-//             ballPosition.y += 2.0f;
-//         //----------------------------------------------------------------------------------
+    while (!WindowShouldClose() && !isEnd)
+    {
+        if (IsKeyPressed(KEY_ESCAPE))
+        {
+            isEnd = true;
+        }
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            canRegister = true;
+        }
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            canRegister = false;
+        }
+        if (canRegister)
+        {
+            mouse_pos = GetTouchPosition(0);
+            Rectangle const temp {whereClicked(offsetx, offsety, mouse_pos)};
+            if (std::find(rects.begin(), rects.end(), temp) == rects.end())
+            {
+                rects.emplace(std::begin(rects), temp);
+                if (rects.size() > 550)
+                {
+                    rects.pop_back();
+                }
+            }
+        }
 
-//         // Draw
-//         //----------------------------------------------------------------------------------
-//         BeginDrawing();
+        ClearBackground(BLACK);
+        BeginDrawing();
+        draw2DGrid(gridinfo, RAYWHITE);
+        DrawText(TextFormat("height : %d \n width : %d", height, width),
+                 width / 2,
+                 height / 2,
+                 22,
+                 RAYWHITE);
+        for (auto const & rect : rects)
+        {
+            DrawRectangleRec(rect, BLUE);
+        }
+        EndDrawing();
+    }
 
-//         ClearBackground(RAYWHITE);
-
-//         DrawText("move the ball with arrow keys", 10, 10, 20, DARKGRAY);
-
-//         DrawCircleV(ballPosition, 50, MAROON);
-
-//         EndDrawing();
-//         //----------------------------------------------------------------------------------
-//     }
-
-//     // De-Initialization
-//     //--------------------------------------------------------------------------------------
-//     CloseWindow();  // Close window and OpenGL context
-//     //--------------------------------------------------------------------------------------
-
-//     return 0;
-// }
+    return 0;
+}
