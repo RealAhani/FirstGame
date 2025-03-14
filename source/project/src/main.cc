@@ -1,6 +1,7 @@
 // goal: check an expresion in runtime if not android
 // note: pass a true condition that you need like percent>100 fail
-void checkAtRuntime(bool faildCondition, std::string const & errMsg) noexcept
+#include "raylib.h"
+void checkAtRuntime(bool faildCondition, std::string_view const & errMsg) noexcept
 {
 #ifdef DEBUG
     if (myproject::cmake::platform != "Android" && faildCondition)
@@ -12,9 +13,11 @@ void checkAtRuntime(bool faildCondition, std::string const & errMsg) noexcept
 }
 
 // goal: calculate position and size of object based on desired percentage of parent
-// cordinate note: x and y should be 0<n<100 note: widthPercent and heightPercent
+// cordinate
+// note: x and y should be 0<n<100 note: widthPercent and heightPercent
 // calculate based on reminding space of parent width and height so if you say 100 it
 // fill reminding space of width
+[[nodiscard]]
 Rectangle placeRelative(Rectangle const & parentInfo,
                         uint8_t const     xPercent,
                         uint8_t const     yPercent,
@@ -38,7 +41,7 @@ Rectangle placeRelative(Rectangle const & parentInfo,
     return Rectangle {.x = newX, .y = newY, .width = newW, .height = newH};
 }
 
-struct gridInfo
+struct GridInfo
 {
     Rectangle rect;
     Vector2   cellSize;
@@ -46,23 +49,47 @@ struct gridInfo
     uint8_t   rowCount;
 };
 
+// struct inputInfo{
+//     Vector2 cordinate;
+//     float time;
+// };
+
+// struct inputRegister
+// {
+//     float delayRegister {};
+//     bool  canRegister;
+// };
+
+// struct windowInfo
+// {
+//     std::string_view name;
+//     Rectangle winRect;
+//     gridInfo grid;
+//     float delatTime;
+//     uint8_t fps;
+//     bool isEnd;
+// };
+
 // goal: initilizer function for gridInfo object
 // note: col and row should be bigger than 2
-gridInfo createGrid(Rectangle const & gridRect,
-                    uint8_t const     columnCount = 2,
-                    uint8_t const     rowCount    = 2)
+[[nodiscard]]
+GridInfo createGridInfo(Rectangle const & gridRect,
+                        uint8_t const     columnCount = 2,
+                        uint8_t const     rowCount    = 2) noexcept
 {
     // col and row should be bigger than 2X2
     checkAtRuntime((columnCount < 2 || rowCount < 2),
                    "column and row should be bigger than 2");
-    return gridInfo {.rect        = gridRect,
+    return GridInfo {.rect        = gridRect,
                      .cellSize    = Vector2 {gridRect.width / columnCount,
                                           gridRect.height / rowCount},
                      .columnCount = columnCount,
                      .rowCount    = rowCount};
 }
 
-static void draw2DGrid(gridInfo const & grid, Color const lineColor) noexcept
+// goal: draw grid on screen in real time with grid info
+// note: it can be slow if its a static grid use genGridTexture
+static void drawGrid(GridInfo const & grid, Color const lineColor) noexcept
 {
     // draw in between lines based on col and row
     // drawing row lines
@@ -86,11 +113,43 @@ static void draw2DGrid(gridInfo const & grid, Color const lineColor) noexcept
         // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
     }
 }
+// goal: crete a grid texture
+// note: its more performance friendly for static grid
+static Texture2D genGridTexture(GridInfo const & grid,
+                                Color const      lineColor,
+                                Color const      backgroundColor)
+{
+    Image img = GenImageColor(grid.rect.width, grid.rect.height, backgroundColor);
+    // draw in between lines based on col and row
+    // drawing row lines
+    float yOffset {grid.rect.y};
+    for (unsigned int i {}; i <= grid.rowCount; ++i)
+    {
+        ImageDrawLine(&img, grid.rect.x, yOffset, grid.rect.width + grid.rect.x, yOffset, lineColor);
+        yOffset += grid.cellSize.y;
+    }
+    // draw
+    float xOffset {grid.rect.x};
+    for (unsigned int i {}; i <= grid.columnCount; ++i)
+    {
+        ImageDrawLine(&img,
+                      xOffset,
+                      grid.rect.y,
+                      xOffset,
+                      grid.rect.height + grid.rect.y,
+                      lineColor);
+        xOffset += grid.cellSize.x;
+        // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
+    }
+    Texture2D gridTexture = LoadTextureFromImage(img);
+    UnloadImage(img);
+    return gridTexture;
+}
 
 Rectangle whereClicked(float const     offsetX,
                        float const     offsetY,
                        Vector2 const & position,
-                       bool const      debugDraw = false) noexcept
+                       bool const      debugDraw = true) noexcept
 {
     int const tempRemX = (static_cast<int>(position.x) / static_cast<int>(offsetX));
     int       x1 {};
@@ -145,8 +204,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     auto const             height   = GetScreenHeight();
     auto const             width    = GetScreenWidth();
     auto const             fps      = GetMonitorRefreshRate(0);
-    int const              row      = 60;
-    int const              column   = 90;
+    int const              row      = 50;
+    int const              column   = 60;
     auto const             offsety  = static_cast<float>(height) / row;
     auto const             offsetx  = static_cast<float>(width) / column;
     auto const             gridRect = placeRelative(Rectangle {0,
@@ -157,7 +216,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
                                         0,
                                         100,
                                         100);
-    auto const             gridinfo = createGrid(gridRect, column, row);
+    auto const             gridinfo = createGridInfo(gridRect, column, row);
+    Texture2D const        gridTexture {genGridTexture(gridinfo, WHITE, BLACK)};
     std::vector<Rectangle> rects {};
     rects.reserve(1000);
     Vector2 mouse_pos {};
@@ -194,9 +254,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
             }
         }
 
-        ClearBackground(BLACK);
+        ClearBackground(WHITE);
         BeginDrawing();
-        draw2DGrid(gridinfo, RAYWHITE);
+        // drawGrid(gridinfo, RAYWHITE);
+        DrawTexture(gridTexture, 0, 0, RED);
         DrawText(TextFormat("height : %d \n width : %d", height, width),
                  width / 2,
                  height / 2,
