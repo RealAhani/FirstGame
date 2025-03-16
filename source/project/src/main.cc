@@ -1,3 +1,5 @@
+namespace
+{
 using namespace std::string_literals;
 using namespace std::string_view_literals;
 namespace RA_Global
@@ -24,7 +26,35 @@ auto checkAtRuntime(bool                     faildCondition,
     }
 #endif  // DEBUG
 }
+/*
+ *@Note: the parent x and y (origin) should be top-left e.x:(0,0)
+ *@Note: widthPercent  and heightPercent is calculated based on parent w,h
+ *@Warning: the width and height of the parent should be less than window size
+ */
+[[nodiscard]] [[maybe_unused]]
+auto placeRelativeCenter(Rectangle const & parentInfo,
+                         uint8_t const     widthPercent,
+                         uint8_t const heightPercent) noexcept -> Rectangle
+{
 
+    // bounds checking on input args (debug only)
+    checkAtRuntime((widthPercent > 100 || heightPercent > 100 ||
+                    widthPercent == 0 || heightPercent == 0),
+                   "Placement Relative inputs should be 1<n<100 "
+                   "in percentage "
+                   "(unsigned int)\n"sv);
+
+    float const newX = parentInfo.x + (parentInfo.width / 2.f);
+    float const newY = parentInfo.y + (parentInfo.height / 2.f);
+
+    float const newW = parentInfo.width * widthPercent / 100.f;
+    float const newH = parentInfo.height * heightPercent / 100.f;
+
+    return Rectangle {.x      = newX - (newW / 2.f),
+                      .y      = newY - (newH / 2.f),
+                      .width  = newW,
+                      .height = newH};
+}
 /*
  *@Goal: calculate position and size of object based on desired
  *percentage of parent cordinate note: x and y should be 0<n<100
@@ -34,27 +64,36 @@ auto checkAtRuntime(bool                     faildCondition,
  */
 [[nodiscard]] [[maybe_unused]]
 auto placeRelative(Rectangle const & parentInfo,
-                   uint8_t const     xPercent,
-                   uint8_t const     yPercent,
-                   uint8_t const     widthPercent,
-                   uint8_t const heightPercent) noexcept -> Rectangle
+                   uint8_t const     xPercentOffset,
+                   uint8_t const     yPercentOffset,
+                   uint8_t const     wPercentReminded,
+                   uint8_t const hPercentReminded) noexcept -> Rectangle
 {
-    // bounds checking on input args (debug only)
-    checkAtRuntime((xPercent > 100 || yPercent > 100 ||
-                    widthPercent > 100 || heightPercent > 100),
-                   "Placement Relative inputs should be 0<n<100 "
+    // width and height percent reminded checking
+    checkAtRuntime((wPercentReminded == 0 || hPercentReminded == 0),
+                   "width and height percent should not be zero"
                    "in percentage "
-                   "(int)\n"sv);
+                   "(unsigned int)\n"sv);
+
+    // bounds checking on input args (debug only)
+    checkAtRuntime((xPercentOffset > 100 || yPercentOffset > 100 ||
+                    wPercentReminded > 100 || hPercentReminded > 100),
+                   "Placement Relative inputs should be for \n x,y= "
+                   "0<n<100 \nw,h= 1<n<100\n"
+                   "in percentage "
+                   "(unsigned int)\n"sv);
 
     float const newX = static_cast<float>(parentInfo.x + parentInfo.width) *
-                       xPercent / 100.f;
+                       xPercentOffset / 100.f;
     float const newY = static_cast<float>(parentInfo.y + parentInfo.height) *
-                       yPercent / 100.f;
-    float const newW = (static_cast<float>(parentInfo.width) - newX) *
-                       widthPercent / 100.f;
-    float const newH = (static_cast<float>(parentInfo.height) - newY) *
-                       heightPercent / 100.f;
-    return Rectangle {.x = newX, .y = newY, .width = newW, .height = newH};
+                       yPercentOffset / 100.f;
+    return Rectangle {.x = newX,
+                      .y = newY,
+                      .width = (static_cast<float>(parentInfo.width) - newX) *
+                               wPercentReminded / 100.f,
+                      .height = (static_cast<float>(parentInfo.height) -
+                                 newY) *
+                                hPercentReminded / 100.f};
 }
 
 struct GridInfo
@@ -100,7 +139,10 @@ inline auto createGridInfo(Rectangle const & gridRect,
     // bounds checking on input args (debug only)
     checkAtRuntime((columnCount < 2 || rowCount < 2),
                    "column and row should be bigger than 2\n"sv);
-    return GridInfo {.rect = gridRect,
+    return GridInfo {.rect = Rectangle {.x      = 0.f,
+                                        .y      = 0.f,
+                                        .width  = gridRect.width,
+                                        .height = gridRect.height},
                      .cellSize = Vector2 {gridRect.width / columnCount,
                                           gridRect.height / rowCount},
                      .columnCount = columnCount,
@@ -375,7 +417,7 @@ auto updateAnim(AnimData & data) noexcept -> void
 }
 
 }  // namespace RA_Anim
-
+}  // namespace
 // Define the operator== function outside the class
 [[maybe_unused]]
 auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
@@ -388,25 +430,30 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
     InitWindow(0, 0, "Test");
     ToggleFullscreen();
-    auto const height   = GetScreenHeight();
-    auto const width    = GetScreenWidth();
-    auto const fps      = GetMonitorRefreshRate(0);
-    int const  row      = 100;
-    int const  column   = 100;
-    auto const offsety  = static_cast<float>(height) / row;
-    auto const offsetx  = static_cast<float>(width) / column;
-    auto const gridRect = RA_Util::
-        placeRelative(Rectangle {0,
-                                 0,
-                                 static_cast<float>(width),
-                                 static_cast<float>(height)},
-                      20,
-                      10,
-                      70,
-                      80);
-    auto gridinfo   = RA_Util::createGridInfo(gridRect, column, row);
-    gridinfo.rect.x = 0.f;
-    gridinfo.rect.y = 0.f;
+    auto const height  = GetScreenHeight();
+    auto const width   = GetScreenWidth();
+    auto const fps     = GetMonitorRefreshRate(0);
+    int const  row     = 100;
+    int const  column  = 100;
+    auto const offsety = static_cast<float>(height) / row;
+    auto const offsetx = static_cast<float>(width) / column;
+    // auto       gridRect = RA_Util::placeRelative(Rectangle {0,
+    //                                                   0,
+    //                                                   static_cast<float>(width),
+    //                                                   static_cast<float>(
+    //                                                       height)},
+    //                                        49,
+    //                                        49,
+    //                                        100,
+    //                                        100);
+    auto gridRect = RA_Util::
+        placeRelativeCenter(Rectangle {0.f,
+                                       0.f,
+                                       static_cast<float>(width),
+                                       static_cast<float>(height)},
+                            20,
+                            50);
+    auto gridinfo = RA_Util::createGridInfo(gridRect, column, row);
     Texture2D const gridTexture {
         RA_Util::genGridTexture(gridinfo, WHITE, BLACK)};
     std::vector<Rectangle> rects {};
@@ -472,6 +519,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             DrawRectangleRec(rect, BLUE);
         }
         RA_Anim::renderAnim(scarfyAnim, playerPos);
+        EndMode2D();
         EndDrawing();
     }
     CloseWindow();
