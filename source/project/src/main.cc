@@ -1,10 +1,23 @@
-// goal: check an expresion in runtime if not android
-// note: pass a true condition that you need like percent>100 fail
+using namespace std::string_literals;
+using namespace std::string_view_literals;
+namespace RA_Global
+{
+constexpr std::uint8_t const              animationFPS = 60;
+inline static constexpr std::string const texturePath  = "resource/"s;
+}  // namespace RA_Global
+
+namespace RA_Util
+{
+/*
+ * @Goal: check an expresion in runtime if not android
+ * @Note: pass a true condition that you need like percent>100 fail
+ */
 [[maybe_unused]]
-void checkAtRuntime(bool faildCondition, std::string_view const & errMsg) noexcept
+auto checkAtRuntime(bool                     faildCondition,
+                    std::string_view const & errMsg) noexcept -> void
 {
 #ifdef DEBUG
-    if (myproject::cmake::platform != "Android" && faildCondition)
+    if (myproject::cmake::platform != "Android"sv && faildCondition)
     {
         std::cerr << errMsg << '\n';
         assert(!faildCondition);
@@ -12,29 +25,33 @@ void checkAtRuntime(bool faildCondition, std::string_view const & errMsg) noexce
 #endif  // DEBUG
 }
 
-// goal: calculate position and size of object based on desired percentage of parent
-// cordinate
-// note: x and y should be 0<n<100 note: widthPercent and heightPercent
-// calculate based on reminding space of parent width and height so if you say 100 it
-// fill reminding space of width
+/*
+ *@Goal: calculate position and size of object based on desired
+ *percentage of parent cordinate note: x and y should be 0<n<100
+ *@Note: widthPercent and heightPercent calculate based on
+ *reminding space of parent width and height so if you say 100
+ *it fill reminding space of width
+ */
 [[nodiscard]] [[maybe_unused]]
-Rectangle placeRelative(Rectangle const & parentInfo,
-                        uint8_t const     xPercent,
-                        uint8_t const     yPercent,
-                        uint8_t const     widthPercent,
-                        uint8_t const     heightPercent) noexcept
+auto placeRelative(Rectangle const & parentInfo,
+                   uint8_t const     xPercent,
+                   uint8_t const     yPercent,
+                   uint8_t const     widthPercent,
+                   uint8_t const heightPercent) noexcept -> Rectangle
 {
     // bounds checking on input args (debug only)
-    checkAtRuntime((xPercent > 100 || yPercent > 100 || widthPercent > 100 ||
-                    heightPercent > 100),
-                   "Placement Relative inputs should be 0<n<100 in percentage "
-                   "(int)");
+    checkAtRuntime((xPercent > 100 || yPercent > 100 ||
+                    widthPercent > 100 || heightPercent > 100),
+                   "Placement Relative inputs should be 0<n<100 "
+                   "in percentage "
+                   "(int)\n"sv);
 
     float const newX = static_cast<float>(parentInfo.x + parentInfo.width) *
                        xPercent / 100.f;
     float const newY = static_cast<float>(parentInfo.y + parentInfo.height) *
                        yPercent / 100.f;
-    float const newW = (static_cast<float>(parentInfo.width) - newX) * widthPercent / 100.f;
+    float const newW = (static_cast<float>(parentInfo.width) - newX) *
+                       widthPercent / 100.f;
     float const newH = (static_cast<float>(parentInfo.height) - newY) *
                        heightPercent / 100.f;
     return Rectangle {.x = newX, .y = newY, .width = newW, .height = newH};
@@ -69,28 +86,33 @@ struct GridInfo
 //     bool isEnd;
 // };
 
-// goal: initilizer function for gridInfo object
-// note: col and row should be bigger than 2
+/*
+ *
+ *@Goal: initilizer function for gridInfo object
+ *@Note: col and row should be bigger than 2
+ */
 [[nodiscard]] [[maybe_unused]]
-inline GridInfo createGridInfo(Rectangle const & gridRect,
-                               uint8_t const     columnCount = 2,
-                               uint8_t const     rowCount    = 2) noexcept
+inline auto createGridInfo(Rectangle const & gridRect,
+                           uint8_t const     columnCount = 2,
+                           uint8_t const rowCount = 2) noexcept -> GridInfo
 {
     // col and row should be bigger than 2X2
     // bounds checking on input args (debug only)
     checkAtRuntime((columnCount < 2 || rowCount < 2),
-                   "column and row should be bigger than 2");
-    return GridInfo {.rect        = gridRect,
-                     .cellSize    = Vector2 {gridRect.width / columnCount,
+                   "column and row should be bigger than 2\n"sv);
+    return GridInfo {.rect = gridRect,
+                     .cellSize = Vector2 {gridRect.width / columnCount,
                                           gridRect.height / rowCount},
                      .columnCount = columnCount,
                      .rowCount    = rowCount};
 }
-
-// goal: draw grid on screen in real time with grid info
-// note: it can be slow if its a static grid use genGridTexture
+/*
+ *@Goal: draw grid on screen in real time with grid info
+ *@Note: it can be slow if its a static grid use genGridTexture
+ */
 [[maybe_unused]]
-void drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
+auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
+    -> void
 {
     // draw in between lines based on col and row
     // drawing row lines
@@ -114,13 +136,17 @@ void drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
         // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
     }
 }
-// goal: crete a grid texture
-// note: its more performance friendly for static grid
-// TODO: make it lazy load
+
+/*
+* @Goal: crete a grid texture
+* @Note: its more performance friendly for static grid
+ TODO: make it lazy load
+*/
 [[nodiscard]] [[maybe_unused]]
-Texture2D genGridTexture(GridInfo const & grid,
-                         Color const      lineColor       = WHITE,
-                         Color const      backgroundColor = BLACK) noexcept
+auto genGridTexture(GridInfo const & grid,
+                    Color const      lineColor       = WHITE,
+                    Color const      backgroundColor = BLACK) noexcept
+    -> Texture2D
 {
     Image img = GenImageColor(static_cast<int>(grid.rect.width),
                               static_cast<int>(grid.rect.height),
@@ -157,12 +183,13 @@ Texture2D genGridTexture(GridInfo const & grid,
 }
 
 [[nodiscard]] [[maybe_unused]]
-Rectangle whereClicked(float const     offsetX,
-                       float const     offsetY,
-                       Vector2 const & position,
-                       bool const      debugDraw = false) noexcept
+auto whereClicked(float const     offsetX,
+                  float const     offsetY,
+                  Vector2 const & position,
+                  bool const debugDraw = false) noexcept -> Rectangle
 {
-    int const tempRemX = (static_cast<int>(position.x) / static_cast<int>(offsetX));
+    int const tempRemX = (static_cast<int>(position.x) /
+                          static_cast<int>(offsetX));
     int       x1 {};
     if (tempRemX == 1)
     {
@@ -178,7 +205,8 @@ Rectangle whereClicked(float const     offsetX,
     }
 
     int       y1 {};
-    int const tempRemY = (static_cast<int>(position.y) / static_cast<int>(offsetY));
+    int const tempRemY = (static_cast<int>(position.y) /
+                          static_cast<int>(offsetY));
     if (tempRemY == 1)
     {
         y1 = static_cast<int>(offsetY);
@@ -193,11 +221,15 @@ Rectangle whereClicked(float const     offsetX,
     }
     if (debugDraw)
     {
-        DrawRectangleRec(Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY}, RAYWHITE);
+        DrawRectangleRec(Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY},
+                         RAYWHITE);
         DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
         DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + offsetY) / 1.f}, 10, RED);
         DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f, (y1 + offsetY) / 1.f}, 10, RED);
+        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f,
+                                  (y1 + offsetY) / 1.f},
+                         10,
+                         RED);
         DrawCircleLinesV(position, 5, YELLOW);
     }
     return Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY};
@@ -206,7 +238,6 @@ Rectangle whereClicked(float const     offsetX,
 }  // namespace RA_Util
 namespace RA_Anim
 {
-constexpr int const animationFPS = 60;
 // class Animation2D{
 // };
 
@@ -225,16 +256,22 @@ struct AnimData
 };
 
 [[nodiscard]] [[maybe_unused]]
-AnimData initAnim(char const* fileName, int const animLenght, int const speed, int const speedMax)
+auto initAnim(std::string_view const & fileName,
+              int const                animLenght,
+              int const                speed,
+              int const                speedMax) -> AnimData
 {
-    char const* path = TextFormat("resource/%s", fileName);
-    if (FileExists(path))
+    std::string const
+        path = TextFormat((RA_Global::texturePath + "%s").c_str(),
+                          fileName);
+    if (FileExists(path.c_str()))
     {
-        Texture2D const temp = LoadTexture(path);
+        Texture2D const temp = LoadTexture(path.c_str());
         return AnimData {.textureAnim  = temp,
-                         .rect         = {.x = 0,
-                                          .y = 0,
-                                          .width = static_cast<float>(temp.width / animLenght),
+                         .rect         = {.x     = 0,
+                                          .y     = 0,
+                                          .width = static_cast<float>(
+                                      temp.width / animLenght),
                                           .height = static_cast<float>(temp.height)},
                          .length       = animLenght,
                          .counter      = 0,
@@ -248,69 +285,87 @@ AnimData initAnim(char const* fileName, int const animLenght, int const speed, i
     std::terminate();
 }
 [[maybe_unused]]
-void cleanAnim(AnimData & data) noexcept
+auto cleanAnim(AnimData & outData) noexcept -> void
 {
-    UnloadTexture(data.textureAnim);
-    data.rect = Rectangle {0, 0, 0, 0};
-}
-// goal: animation speed currection
-// note: it works as a input output param refrence
-// warning: internall function usage
-[[maybe_unused]]
-void limitSpeedAnim(AnimData & inOutData) noexcept
-{
-    if (inOutData.currentSpeed > inOutData.speedMAX)
-        inOutData.currentSpeed = inOutData.speedMAX;
-    else if (inOutData.currentSpeed < inOutData.speedMIN)
-        inOutData.currentSpeed = inOutData.speedMIN;
-}
-// note: it works as a input output param refrence
-[[maybe_unused]]
-inline void increaseAnimSpeed(AnimData & inOutData) noexcept
-{
-    inOutData.currentSpeed += 1;
-    limitSpeedAnim(inOutData);
-}
-// note: it works as a input output param refrence
-[[maybe_unused]]
-inline void decreaseAnimSpeed(AnimData & inOutData) noexcept
-{
-    inOutData.currentSpeed -= 1;
-    limitSpeedAnim(inOutData);
+    UnloadTexture(outData.textureAnim);
+    outData.rect = Rectangle {0, 0, 0, 0};
 }
 
-// note: it works as a input output param refrence
+/*
+ *@Goal: animation speed currection
+ *@Note: it works as a input output param refrence
+ *@Warning: internall function usage
+ */
 [[maybe_unused]]
-inline void resetAnimSpeed(AnimData & inOutData) noexcept
+auto limitSpeedAnim(AnimData & outData) noexcept -> void
 {
-    inOutData.currentSpeed = inOutData.defaultSpeed;
+    if (outData.currentSpeed > outData.speedMAX)
+        outData.currentSpeed = outData.speedMAX;
+    else if (outData.currentSpeed < outData.speedMIN)
+        outData.currentSpeed = outData.speedMIN;
 }
-// note: it works as a input output param refrence
-// warning: internall function usage for updateAnim
+
+/*
+ *@Note: it works as a input output param refrence
+ */
 [[maybe_unused]]
-void resetAnim(AnimData & inOutData) noexcept
+inline auto increaseAnimSpeed(AnimData & outData) noexcept -> void
 {
-    inOutData.currentFrame = 0;
+    outData.currentSpeed += 1;
+    limitSpeedAnim(outData);
+}
+/*
+ *@Note: it works as a input output param refrence
+ */
+[[maybe_unused]]
+inline auto decreaseAnimSpeed(AnimData & outData) noexcept -> void
+{
+    outData.currentSpeed -= 1;
+    limitSpeedAnim(outData);
+}
+
+/*
+ * @Note: it works as a input output param refrence
+ */
+[[maybe_unused]]
+inline auto resetAnimSpeed(AnimData & outData) noexcept -> void
+{
+    outData.currentSpeed = outData.defaultSpeed;
+}
+/*
+ * @Note: it works as a input output param refrence
+ * @Warning: internall function usage for updateAnim
+ */
+[[maybe_unused]]
+inline auto resetAnim(AnimData & outData) noexcept -> void
+{
+    outData.currentFrame = 0;
 }
 // TODO: zBuffer needed
 [[maybe_unused]]
-void renderAnim(AnimData const & data, Vector2 const & pos, Color const tint = WHITE) noexcept
+auto renderAnim(AnimData const & data,
+                Vector2 const &  pos,
+                Color const      tint = WHITE) noexcept -> void
 {
     DrawTextureRec(data.textureAnim, data.rect, pos, tint);
 }
-// goal: get ready AnimData for render them in gameloop
+
+/*
+ *@Goal: get ready animation info for render them in gameloop
+ */
 [[maybe_unused]]
-void updateAnim(AnimData & data) noexcept
+auto updateAnim(AnimData & data) noexcept -> void
 {
     data.counter++;
-    if (data.counter >= animationFPS / data.currentSpeed)
+    if (data.counter >= RA_Global::animationFPS / data.currentSpeed)
     {
         data.counter = 0;
         // speed currection
         limitSpeedAnim(data);
         data.currentFrame++;
 
-        if (data.currentFrame > (data.length - 1))  // start animation frame is zero
+        if (data.currentFrame >
+            (data.length - 1))  // start animation frame is zero
             resetAnim(data);
 
         data.rect.x = static_cast<float>(data.currentFrame) *
@@ -320,16 +375,16 @@ void updateAnim(AnimData & data) noexcept
 }
 
 }  // namespace RA_Anim
-// Define the operator== function outside the class
-}  // namespace
 
+// Define the operator== function outside the class
 [[maybe_unused]]
-bool operator==(Rectangle const & lhs, Rectangle const & rhs)
+auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
+    -> bool
 {
     return (lhs.x == rhs.x && lhs.y == rhs.y);
 }
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
+auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
     InitWindow(0, 0, "Test");
     ToggleFullscreen();
@@ -340,23 +395,24 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     int const  column   = 100;
     auto const offsety  = static_cast<float>(height) / row;
     auto const offsetx  = static_cast<float>(width) / column;
-    auto const gridRect = RA_Util::placeRelative(Rectangle {0,
-                                                            0,
-                                                            static_cast<float>(width),
-                                                            static_cast<float>(height)},
-                                                 20,
-                                                 10,
-                                                 70,
-                                                 80);
-    auto       gridinfo = RA_Util::createGridInfo(gridRect, column, row);
-    gridinfo.rect.x     = 0.f;
-    gridinfo.rect.y     = 0.f;
-    Texture2D const gridTexture {RA_Util::genGridTexture(gridinfo, WHITE, BLACK)};
+    auto const gridRect = RA_Util::
+        placeRelative(Rectangle {0,
+                                 0,
+                                 static_cast<float>(width),
+                                 static_cast<float>(height)},
+                      20,
+                      10,
+                      70,
+                      80);
+    auto gridinfo   = RA_Util::createGridInfo(gridRect, column, row);
+    gridinfo.rect.x = 0.f;
+    gridinfo.rect.y = 0.f;
+    Texture2D const gridTexture {
+        RA_Util::genGridTexture(gridinfo, WHITE, BLACK)};
     std::vector<Rectangle> rects {};
     rects.reserve(1000);
     Vector2 mousePos {};
     SetTargetFPS(fps);
-
     bool     isEnd {false};
     bool     canRegister {false};
     Camera2D camera;
@@ -364,8 +420,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
     camera.target   = Vector2 {};
     camera.rotation = 0;
     camera.zoom     = 1.f;
-    RA_Anim::AnimData scarfyAnim {RA_Anim::initAnim("scarfy.png", 6, 8, 15)};
-    Vector2           playerPos {};
+    RA_Anim::AnimData scarfyAnim {
+        RA_Anim::initAnim("scarfy.png"sv, 6, 8, 15)};
+    Vector2 playerPos {};
     while (!WindowShouldClose() && !isEnd)
     {
         if (IsKeyPressed(KEY_ESCAPE))
@@ -383,8 +440,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
         if (canRegister)
         {
             mousePos = GetTouchPosition(0);
-            Rectangle const temp {RA_Util::whereClicked(offsetx, offsety, mousePos)};
-            if (std::find(rects.begin(), rects.end(), temp) == rects.end())
+            Rectangle const temp {
+                RA_Util::whereClicked(offsetx, offsety, mousePos)};
+            if (std::find(rects.begin(), rects.end(), temp) ==
+                rects.end())
             {
                 rects.emplace(std::begin(rects), temp);
                 if (rects.size() > 550)
