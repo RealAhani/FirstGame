@@ -1,11 +1,14 @@
+#include <string>
+#include <string_view>
 namespace
 {
 using namespace std::string_literals;
 using namespace std::string_view_literals;
 namespace RA_Global
 {
-constexpr std::uint8_t const              animationFPS = 60;
-inline static constexpr std::string const texturePath  = "resource/"s;
+constexpr std::uint8_t const animationFPS = 60;
+inline static constexpr std::string_view const
+    texturePath = "resource/"sv;
 }  // namespace RA_Global
 
 namespace RA_Util
@@ -303,9 +306,11 @@ auto initAnim(std::string_view const & fileName,
               int const                speed,
               int const                speedMax) -> AnimData
 {
-    std::string const
-        path = TextFormat((RA_Global::texturePath + "%s").c_str(),
-                          fileName);
+    std::string path;
+    path.reserve(RA_Global::texturePath.size() + fileName.size());
+    path.append(RA_Global::texturePath);
+    path.append(fileName);
+
     if (FileExists(path.c_str()))
     {
         Texture2D const temp = LoadTexture(path.c_str());
@@ -429,7 +434,7 @@ auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
     InitWindow(0, 0, "Test");
-    ToggleFullscreen();
+    // ToggleFullscreen();
     auto const height  = GetScreenHeight();
     auto const width   = GetScreenWidth();
     auto const fps     = GetMonitorRefreshRate(0);
@@ -453,6 +458,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                        static_cast<float>(height)},
                             20,
                             50);
+
     auto gridinfo = RA_Util::createGridInfo(gridRect, column, row);
     Texture2D const gridTexture {
         RA_Util::genGridTexture(gridinfo, WHITE, BLACK)};
