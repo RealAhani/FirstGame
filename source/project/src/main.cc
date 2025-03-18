@@ -1,5 +1,3 @@
-#include <string>
-#include <string_view>
 namespace
 {
 using namespace std::string_literals;
@@ -18,8 +16,8 @@ namespace RA_Util
  * @Note: pass a true condition that you need like percent>100 fail
  */
 [[maybe_unused]]
-auto checkAtRuntime(bool                     faildCondition,
-                    std::string_view const & errMsg) noexcept -> void
+auto checkAtRuntime(bool                   faildCondition,
+                    std::string_view const errMsg) noexcept -> void
 {
 #ifdef DEBUG
     if (myproject::cmake::platform != "Android"sv && faildCondition)
@@ -301,10 +299,10 @@ struct AnimData
 };
 
 [[nodiscard]] [[maybe_unused]]
-auto initAnim(std::string_view const & fileName,
-              int const                animLenght,
-              int const                speed,
-              int const                speedMax) -> AnimData
+auto initAnim(std::string_view const fileName,
+              int const              animLenght,
+              int const              speed,
+              int const              speedMax) -> AnimData
 {
     std::string path;
     path.reserve(RA_Global::texturePath.size() + fileName.size());
