@@ -431,6 +431,11 @@ auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
+#ifdef RLGL_IMPLEMENTATION
+    std::cout << "Raylib is statically linked." << std::endl;
+#else
+    std::cout << "Raylib is dynamically linked." << std::endl;
+#endif
     InitWindow(0, 0, "Test");
     // ToggleFullscreen();
     auto const height  = GetScreenHeight();

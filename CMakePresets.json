@@ -16,7 +16,8 @@
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_COLOR_DIAGNOSTICS": "ON",
-                "PLATFORM": "Desktop"
+                "PLATFORM": "Desktop",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC"
             }
         },
         {
@@ -236,6 +237,7 @@
                 "PRESET_NAME": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "P_INTERNAL_LIB_TYPE": "STATIC",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC",
                 "HAS_EXE": "OFF",
                 "HAS_LIB": "OFF",
                 "HAS_CONSOLE": "OFF",
@@ -272,6 +274,7 @@
                 "PRESET_NAME": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "P_INTERNAL_LIB_TYPE": "STATIC",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC",
                 "HAS_EXE": "OFF",
                 "HAS_LIB": "OFF",
                 "HAS_CONSOLE": "OFF",
@@ -308,6 +311,7 @@
                 "PRESET_NAME": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "P_INTERNAL_LIB_TYPE": "STATIC",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC",
                 "HAS_EXE": "OFF",
                 "HAS_LIB": "OFF",
                 "HAS_CONSOLE": "OFF",
@@ -344,6 +348,7 @@
                 "PRESET_NAME": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "P_INTERNAL_LIB_TYPE": "STATIC",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC",
                 "HAS_EXE": "OFF",
                 "HAS_LIB": "OFF",
                 "HAS_CONSOLE": "OFF",
@@ -380,6 +385,7 @@
                 "PRESET_NAME": "",
                 "CMAKE_BUILD_TYPE": "Release",
                 "P_INTERNAL_LIB_TYPE": "STATIC",
+                "P_EXTERNAL_LIBS_TYPE": "STATIC",
                 "HAS_EXE": "OFF",
                 "HAS_LIB": "OFF",
                 "HAS_CONSOLE": "OFF",
