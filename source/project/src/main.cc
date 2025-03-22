@@ -1,3 +1,4 @@
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -140,8 +141,8 @@ inline auto createGridInfo(Rectangle const & gridRect,
     // bounds checking on input args (debug only)
     checkAtRuntime((columnCount < 2 || rowCount < 2),
                    "column and row should be bigger than 2\n"sv);
-    return GridInfo {.rect = Rectangle {.x      = 0.f,
-                                        .y      = 0.f,
+    return GridInfo {.rect = Rectangle {.x      = gridRect.x,
+                                        .y      = gridRect.y,
                                         .width  = gridRect.width,
                                         .height = gridRect.height},
                      .cellSize = Vector2 {gridRect.width / columnCount,
@@ -166,7 +167,6 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
                   Vector2 {grid.rect.width + grid.rect.x, yOffset},
                   lineColor);
         yOffset += grid.cellSize.y;
-        // yOffset = std::clamp<float>(yOffset, 0, static_cast<float>(gridHeight));
     }
     // drawing column lines
     float xOffset {grid.rect.x};
@@ -176,7 +176,6 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
                   Vector2 {xOffset, grid.rect.height + grid.rect.y},
                   lineColor);
         xOffset += grid.cellSize.x;
-        // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
     }
 }
 
@@ -225,60 +224,81 @@ auto genGridTexture(GridInfo const & grid,
     return gridTexture;
 }
 
+/*
+ * @Goal: check input-hit-position does inside the grid if so map it
+ * to a sub-rectangle to that hit-pos based on grid-info and return that Cell
+ * @Note: check the return velue before use it (nullopt)
+ * @Warning: this function on his core does heavily depend on rounding integers
+ */
 [[nodiscard]] [[maybe_unused]]
-auto whereClicked(float const     offsetX,
-                  float const     offsetY,
-                  Vector2 const & position,
-                  bool const debugDraw = false) noexcept -> Rectangle
+auto mapTouchToGridCell(GridInfo const & grid,
+                        Vector2 const &  hitPos,
+                        bool const       debugDraw = false) noexcept
+    -> std::optional<Rectangle const>
 {
-    int const tempRemX = (static_cast<int>(position.x) /
-                          static_cast<int>(offsetX));
-    int       x1 {};
-    if (tempRemX == 1)
-    {
-        x1 = static_cast<int>(offsetX);
-    }
-    else if (tempRemX < 1)
-    {
-        x1 = 0;
-    }
-    else  // its zero
-    {
-        x1 = tempRemX * static_cast<int>(offsetX);
-    }
+    // sanity check for devide by zero
+    checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f),
+                   "grid cell size should not be zero"sv);
 
-    int       y1 {};
-    int const tempRemY = (static_cast<int>(position.y) /
-                          static_cast<int>(offsetY));
-    if (tempRemY == 1)
-    {
-        y1 = static_cast<int>(offsetY);
-    }
-    else if (tempRemY < 1)
-    {
-        y1 = 0;
-    }
-    else
-    {
-        y1 = tempRemY * static_cast<int>(offsetY);
-    }
+    // does hit is inside the grid
+    if (hitPos.x < grid.rect.x ||
+        (hitPos.x - grid.rect.x) > grid.rect.width ||
+        hitPos.y < grid.rect.y ||
+        (hitPos.y - grid.rect.y) > grid.rect.height)
+        return std::nullopt;
+
+    int const tempRemX = static_cast<int>(
+        (hitPos.x - grid.rect.x) / grid.cellSize.x);
+
+    int x1 = static_cast<int>((tempRemX * grid.cellSize.x) + grid.rect.x);
+
+    if (tempRemX == 0)
+        x1 = static_cast<int>(grid.rect.x);
+    else if (tempRemX >= grid.columnCount)
+        x1 = static_cast<int>(
+            ((grid.columnCount - 1) * grid.cellSize.x) + grid.rect.x);
+
+    int const tempRemY = static_cast<int>(
+        (hitPos.y - grid.rect.y) / grid.cellSize.y);
+
+    int y1 = static_cast<int>((tempRemY * grid.cellSize.y) + grid.rect.y);
+    if (tempRemY == 0)
+        y1 = static_cast<int>(grid.rect.y);
+
+    else if (tempRemY >= grid.rowCount)
+        y1 = static_cast<int>(
+            ((grid.rowCount - 1) * grid.cellSize.y) + grid.rect.y);
+
+#ifdef DEBUG
     if (debugDraw)
     {
-        DrawRectangleRec(Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY},
+        DrawRectangleRec(Rectangle {x1 / 1.f,
+                                    y1 / 1.f,
+                                    grid.cellSize.x,
+                                    grid.cellSize.y},
                          RAYWHITE);
         DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + offsetY) / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {(x1 + offsetX) / 1.f,
-                                  (y1 + offsetY) / 1.f},
+        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f},
                          10,
                          RED);
-        DrawCircleLinesV(position, 5, YELLOW);
+        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f},
+                         10,
+                         RED);
+        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f,
+                                  (y1 + grid.cellSize.y) / 1.f},
+                         10,
+                         RED);
+        DrawCircleLinesV(hitPos, 5, YELLOW);
     }
-    return Rectangle {x1 / 1.f, y1 / 1.f, offsetX, offsetY};
+#endif  // DEBUG
+    return Rectangle {x1 / 1.f,
+                      y1 / 1.f,
+                      grid.cellSize.x,
+                      grid.cellSize.y};
 }
 
 }  // namespace RA_Util
+
 namespace RA_Anim
 {
 // class Animation2D{
@@ -431,54 +451,46 @@ auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
-#ifdef RLGL_IMPLEMENTATION
-    std::cout << "Raylib is statically linked." << std::endl;
-#else
-    std::cout << "Raylib is dynamically linked." << std::endl;
-#endif
+    SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
+                   FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
     InitWindow(0, 0, "Test");
-    // ToggleFullscreen();
-    auto const height  = GetScreenHeight();
-    auto const width   = GetScreenWidth();
-    auto const fps     = GetMonitorRefreshRate(0);
-    int const  row     = 100;
-    int const  column  = 100;
-    auto const offsety = static_cast<float>(height) / row;
-    auto const offsetx = static_cast<float>(width) / column;
-    // auto       gridRect = RA_Util::placeRelative(Rectangle {0,
-    //                                                   0,
-    //                                                   static_cast<float>(width),
-    //                                                   static_cast<float>(
-    //                                                       height)},
-    //                                        49,
-    //                                        49,
-    //                                        100,
-    //                                        100);
-    auto gridRect = RA_Util::
+    auto const height   = GetScreenHeight();
+    auto const width    = GetScreenWidth();
+    auto const fps      = GetMonitorRefreshRate(0);
+    int const  row      = 3;
+    int const  column   = 3;
+    auto       gridRect = RA_Util::
         placeRelativeCenter(Rectangle {0.f,
                                        0.f,
                                        static_cast<float>(width),
                                        static_cast<float>(height)},
                             20,
-                            50);
+                            20);
 
     auto gridinfo = RA_Util::createGridInfo(gridRect, column, row);
+
+    // center the texture of grid
+    auto gridTextureinfo   = gridinfo;
+    gridTextureinfo.rect.x = 0.f;
+    gridTextureinfo.rect.y = 0.f;
+
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridinfo, WHITE, BLACK)};
-    std::vector<Rectangle> rects {};
+        RA_Util::genGridTexture(gridTextureinfo, WHITE, BLACK)};
+
+    std::vector<Rectangle> rects;
     rects.reserve(1000);
     Vector2 mousePos {};
     SetTargetFPS(fps);
-    bool     isEnd {false};
-    bool     canRegister {false};
+
+    bool isEnd {false};
+    bool canRegister {false};
+
     Camera2D camera;
     camera.offset   = Vector2 {};
     camera.target   = Vector2 {};
     camera.rotation = 0;
     camera.zoom     = 1.f;
-    RA_Anim::AnimData scarfyAnim {
-        RA_Anim::initAnim("scarfy.png"sv, 6, 8, 15)};
-    Vector2 playerPos {};
+
     while (!WindowShouldClose() && !isEnd)
     {
         if (IsKeyPressed(KEY_ESCAPE))
@@ -496,27 +508,32 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         if (canRegister)
         {
             mousePos = GetTouchPosition(0);
-            Rectangle const temp {
-                RA_Util::whereClicked(offsetx, offsety, mousePos)};
-            if (std::find(rects.begin(), rects.end(), temp) ==
-                rects.end())
+
+            std::optional<Rectangle> filteredRect {
+                RA_Util::mapTouchToGridCell(gridinfo, mousePos)};
+
+            if (filteredRect.has_value())
             {
-                rects.emplace(std::begin(rects), temp);
-                if (rects.size() > 550)
+                if (std::find(rects.begin(),
+                              rects.end(),
+                              filteredRect.value()) == rects.end())
                 {
-                    rects.pop_back();
+                    rects.emplace(std::begin(rects),
+                                  filteredRect.value());
+                    if (rects.size() > ((row * column) - 2))
+                    {
+                        rects.pop_back();
+                    }
                 }
             }
         }
-        RA_Anim::updateAnim(scarfyAnim);
 
         ClearBackground(WHITE);
         BeginDrawing();
         BeginMode2D(camera);
-        // drawGrid(gridinfo, RED);
         DrawTexture(gridTexture,
-                    static_cast<int>(gridRect.x),
-                    static_cast<int>(gridRect.y),
+                    static_cast<int>(gridinfo.rect.x),
+                    static_cast<int>(gridinfo.rect.y),
                     RED);
         DrawText(TextFormat("height : %d \n width : %d", height, width),
                  width / 2,
@@ -527,11 +544,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {
             DrawRectangleRec(rect, BLUE);
         }
-        RA_Anim::renderAnim(scarfyAnim, playerPos);
         EndMode2D();
         EndDrawing();
     }
     CloseWindow();
-    RA_Anim::cleanAnim(scarfyAnim);
     return 0;
 }
