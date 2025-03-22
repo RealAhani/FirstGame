@@ -31,6 +31,7 @@
 // #include <map>
 #include <vector>
 #include <optional>
+#include <bitset>
 #include <thread>
 #include <fstream>
 #include <cassert>

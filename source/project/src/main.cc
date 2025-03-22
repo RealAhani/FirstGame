@@ -1,4 +1,3 @@
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -98,6 +97,10 @@ auto placeRelative(Rectangle const & parentInfo,
                                 hPercentReminded / 100.f};
 }
 
+// grid index order row:3 column:3
+// 9 8 7
+// 6 5 4
+// 3 2 1
 struct GridInfo
 {
     Rectangle rect;
@@ -229,12 +232,18 @@ auto genGridTexture(GridInfo const & grid,
  * to a sub-rectangle to that hit-pos based on grid-info and return that Cell
  * @Note: check the return velue before use it (nullopt)
  * @Warning: this function on his core does heavily depend on rounding integers
+
+ * @Return: selected rectangle and index of it in grid(indexing start from bottom-right and go to left)
+ * e.g for 3*3 grid:
+ * 987
+ * 654
+ * 321
  */
 [[nodiscard]] [[maybe_unused]]
 auto mapTouchToGridCell(GridInfo const & grid,
                         Vector2 const &  hitPos,
                         bool const       debugDraw = false) noexcept
-    -> std::optional<Rectangle const>
+    -> std::optional<std::pair<Rectangle const, std::size_t const>>
 {
     // sanity check for devide by zero
     checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f),
@@ -247,26 +256,28 @@ auto mapTouchToGridCell(GridInfo const & grid,
         (hitPos.y - grid.rect.y) > grid.rect.height)
         return std::nullopt;
 
-    int const tempRemX = static_cast<int>(
+    auto const tempRemX = static_cast<std::size_t>(
         (hitPos.x - grid.rect.x) / grid.cellSize.x);
 
-    int x1 = static_cast<int>((tempRemX * grid.cellSize.x) + grid.rect.x);
+    auto x1 = static_cast<std::size_t>(
+        (tempRemX * grid.cellSize.x) + grid.rect.x);
 
     if (tempRemX == 0)
-        x1 = static_cast<int>(grid.rect.x);
+        x1 = static_cast<std::size_t>(grid.rect.x);
     else if (tempRemX >= grid.columnCount)
-        x1 = static_cast<int>(
+        x1 = static_cast<std::size_t>(
             ((grid.columnCount - 1) * grid.cellSize.x) + grid.rect.x);
 
-    int const tempRemY = static_cast<int>(
+    auto const tempRemY = static_cast<std::size_t>(
         (hitPos.y - grid.rect.y) / grid.cellSize.y);
 
-    int y1 = static_cast<int>((tempRemY * grid.cellSize.y) + grid.rect.y);
+    auto y1 = static_cast<std::size_t>(
+        (tempRemY * grid.cellSize.y) + grid.rect.y);
     if (tempRemY == 0)
-        y1 = static_cast<int>(grid.rect.y);
+        y1 = static_cast<std::size_t>(grid.rect.y);
 
     else if (tempRemY >= grid.rowCount)
-        y1 = static_cast<int>(
+        y1 = static_cast<std::size_t>(
             ((grid.rowCount - 1) * grid.cellSize.y) + grid.rect.y);
 
 #ifdef DEBUG
@@ -291,10 +302,23 @@ auto mapTouchToGridCell(GridInfo const & grid,
         DrawCircleLinesV(hitPos, 5, YELLOW);
     }
 #endif  // DEBUG
-    return Rectangle {x1 / 1.f,
-                      y1 / 1.f,
-                      grid.cellSize.x,
-                      grid.cellSize.y};
+
+    // row* column = indexes
+    // 3*3=9 is total indexes
+    // 9 8 7
+    // 6 5 4
+    // 3 2 1
+    auto const totalLength {
+        static_cast<std::size_t>(grid.columnCount * grid.rowCount)};
+
+    auto const currentIndex {
+        totalLength - ((tempRemX) + (tempRemY * grid.columnCount))};
+
+    return std::pair {Rectangle {x1 / 1.f,
+                                 y1 / 1.f,
+                                 grid.cellSize.x,
+                                 grid.cellSize.y},
+                      currentIndex};
 }
 
 }  // namespace RA_Util
@@ -441,35 +465,66 @@ auto updateAnim(AnimData & data) noexcept -> void
 
 }  // namespace RA_Anim
 }  // namespace
+
+constexpr int const row    = 3;
+constexpr int const column = 3;
+// win condition should check this table to state the winner
+inline static constexpr std::array<std::bitset<9>, 8> const
+    winTable {0x007, 0x038, 0x049, 0x054, 0x092, 0x111, 0x124, 0x1c0};
+struct Player
+{
+    std::bitset<row * column> moves;
+    Color const               rectColor;
+    int const                 id;
+};
+
+struct ColoredRect
+{
+    Rectangle rect;
+    Color     color;
+    ColoredRect()  = default;
+    ~ColoredRect() = default;
+    ColoredRect & operator=(ColoredRect const & rhs)
+    {
+        if (this == &rhs)
+            return *this;
+        rect  = rhs.rect;
+        color = rhs.color;
+        return *this;
+    }
+};
+
 // Define the operator== function outside the class
 [[maybe_unused]]
-auto operator==(Rectangle const & lhs, Rectangle const & rhs) noexcept
+auto operator==(ColoredRect const & lhs, ColoredRect const & rhs) noexcept
     -> bool
 {
-    return (lhs.x == rhs.x && lhs.y == rhs.y);
+    return (lhs.rect.x == rhs.rect.x && lhs.rect.y == rhs.rect.y);
 }
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
+    // init
     SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
                    FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
-    InitWindow(0, 0, "Test");
-    auto const height   = GetScreenHeight();
-    auto const width    = GetScreenWidth();
-    auto const fps      = GetMonitorRefreshRate(0);
-    int const  row      = 3;
-    int const  column   = 3;
-    auto       gridRect = RA_Util::
+    InitWindow(0, 0, "FirstGame");
+    auto const height = GetScreenHeight();
+    auto const width  = GetScreenWidth();
+    auto const fps    = GetMonitorRefreshRate(0);
+    SetTargetFPS(fps);
+
+    auto const gridRect = RA_Util::
         placeRelativeCenter(Rectangle {0.f,
                                        0.f,
                                        static_cast<float>(width),
                                        static_cast<float>(height)},
-                            20,
-                            20);
+                            80,
+                            80);
 
-    auto gridinfo = RA_Util::createGridInfo(gridRect, column, row);
+    auto const gridinfo = RA_Util::createGridInfo(gridRect, column, row);
 
     // center the texture of grid
+    // we need gridinfo to be untouched for draw texture later
     auto gridTextureinfo   = gridinfo;
     gridTextureinfo.rect.x = 0.f;
     gridTextureinfo.rect.y = 0.f;
@@ -477,76 +532,146 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Texture2D const gridTexture {
         RA_Util::genGridTexture(gridTextureinfo, WHITE, BLACK)};
 
-    std::vector<Rectangle> rects;
-    rects.reserve(1000);
+    std::vector<ColoredRect> rects;
+    rects.reserve(row * column);
     Vector2 mousePos {};
-    SetTargetFPS(fps);
 
-    bool isEnd {false};
-    bool canRegister {false};
+    bool isEnd       = false;
+    bool isWin       = false;
+    bool isTie       = false;
+    bool canRegister = false;
 
-    Camera2D camera;
-    camera.offset   = Vector2 {};
-    camera.target   = Vector2 {};
-    camera.rotation = 0;
-    camera.zoom     = 1.f;
+    Camera2D const camera {.offset   = Vector2 {},
+                           .target   = Vector2 {},
+                           .rotation = 0.f,
+                           .zoom     = 1.f};
+    // player1
+    Player p1 {.moves = {}, .rectColor = RED, .id = 0};
+    // player2
+    Player p2 {.moves = {}, .rectColor = BLUE, .id = 1};
 
+    // current player
+    Player* currentPlayer = &p1;
+    Player* wonPlayer {nullptr};
+
+    // game loop
     while (!WindowShouldClose() && !isEnd)
     {
-        if (IsKeyPressed(KEY_ESCAPE))
+        // input
         {
-            isEnd = true;
+            if (IsKeyPressed(KEY_ESCAPE))
+                isEnd = true;
+            else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                canRegister = true;
+            else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+                canRegister = false;
         }
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        // update
         {
-            canRegister = true;
-        }
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-        {
-            canRegister = false;
-        }
-        if (canRegister)
-        {
-            mousePos = GetTouchPosition(0);
-
-            std::optional<Rectangle> filteredRect {
-                RA_Util::mapTouchToGridCell(gridinfo, mousePos)};
-
-            if (filteredRect.has_value())
+            if (canRegister && !isWin && !isTie)
             {
-                if (std::find(rects.begin(),
-                              rects.end(),
-                              filteredRect.value()) == rects.end())
+                mousePos = GetTouchPosition(0);
+
+                auto const filteredRect {
+                    RA_Util::mapTouchToGridCell(gridinfo, mousePos)};
+                // if player touch inside grid
+                if (filteredRect.has_value() && currentPlayer)
                 {
-                    rects.emplace(std::begin(rects),
-                                  filteredRect.value());
-                    if (rects.size() > ((row * column) - 2))
+                    auto const [currentRect,
+                                indexRect] = filteredRect.value();
+                    // if not find the value push it to vector
+                    ColoredRect newRect {};
+                    newRect.rect  = currentRect;
+                    newRect.color = currentPlayer->rectColor;
+                    if (std::ranges::find(std::cbegin(rects),
+                                          std::cend(rects),
+                                          newRect) == std::cend(rects))
                     {
-                        rects.pop_back();
+                        rects.emplace(std::cbegin(rects), newRect);
+                        // if (rects.size() >= ((row * column) - 1))
+                        // {
+                        //     rects.pop_back();
+                        // }
+
+                        // bitset start from zero so we should: indexRect -1
+                        currentPlayer->moves.set((indexRect)-1, true);
+                        // check for win condition
+                        for (auto const n : winTable)
+                        {
+                            std::size_t counter {};
+                            for (size_t i = 0;
+                                 i < currentPlayer->moves.size();
+                                 ++i)
+                            {
+                                // if both bit is 1
+                                if (currentPlayer->moves[i] && n[i])
+                                {
+                                    counter++;
+                                }
+                            }
+                            // if 3 bit is set it means you match one of the winTable numbers
+                            if (counter == 3)
+                            {
+                                isWin     = true;
+                                wonPlayer = currentPlayer;
+                                break;
+                            }
+                        }
+                        // change current player to next player
+                        if (currentPlayer->id == p1.id)
+                        {
+                            currentPlayer = &p2;
+                        }
+                        else
+                        {
+                            currentPlayer = &p1;
+                        }
+                    }
+                    else if (rects.size() == 9 && !isWin && !isTie)
+                    {
+                        isTie = true;
                     }
                 }
             }
         }
-
-        ClearBackground(WHITE);
-        BeginDrawing();
-        BeginMode2D(camera);
-        DrawTexture(gridTexture,
-                    static_cast<int>(gridinfo.rect.x),
-                    static_cast<int>(gridinfo.rect.y),
-                    RED);
-        DrawText(TextFormat("height : %d \n width : %d", height, width),
-                 width / 2,
-                 height / 2,
-                 22,
-                 RAYWHITE);
-        for (auto const & rect : rects)
+        // draw
         {
-            DrawRectangleRec(rect, BLUE);
+            ClearBackground(WHITE);
+            BeginDrawing();
+            BeginMode2D(camera);
+            DrawTexture(gridTexture,
+                        static_cast<int>(gridinfo.rect.x),
+                        static_cast<int>(gridinfo.rect.y),
+                        RED);
+            DrawText(TextFormat("resulation : %d x %d", width, height),
+                     10.f,
+                     10.f,
+                     22,
+                     BLACK);
+            DrawText(TextFormat("FPS: %d", GetFPS()), 10.f, 40.f, 22, BLACK);
+            for (auto const & rect : rects)
+            {
+                DrawRectangleRec(rect.rect, rect.color);
+            }
+            if (isWin)
+            {
+                if (wonPlayer)
+                    DrawText(TextFormat("Player %d WON", wonPlayer->id),
+                             width / 2,
+                             15.f,
+                             25,
+                             wonPlayer->rectColor);
+            }
+            else if (isTie)
+            {
+
+                DrawText("The game is Tie", width / 2, 15.f, 25, BLACK);
+            }
+            EndMode2D();
+            EndDrawing();
         }
-        EndMode2D();
-        EndDrawing();
     }
+    // clean-up
     CloseWindow();
     return 0;
 }
