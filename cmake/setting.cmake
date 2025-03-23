@@ -109,6 +109,7 @@ option(HAS_LIB ON "internal library can enabled/disabled")
 
 # internal lib type
 set(P_INTERNAL_LIB_TYPE "STATIC" CACHE STRING "internal library type (STATIC/SHARED)")
+
 # External fetched libs type
 set(P_EXTERNAL_LIBS_TYPE "SHARED" CACHE STRING "Fetched librareis type (STATIC/SHARED)")
 
@@ -139,7 +140,7 @@ set(APP_PRODUCT_NAME "game" CACHE STRING "")
 set(APP_PACKAGE "com.${APP_COMPANY_NAME}.${APP_PRODUCT_NAME}" CACHE STRING "")
 set(APP_VERSION_CODE "1")
 set(APP_VERSION_NAME "${P_VERSION}")
-set(APP_ORIENTATION "landscape" CACHE STRING "")
+set(APP_ORIENTATION "landscape" CACHE STRING "this can be portrait/landscape")
 set(APP_KEYSTORE_PASS "password" CACHE STRING "")
 set(JAVA_HOME "$ENV{JAVA_HOME}")
 set(ANDROID_PLATFORM "34")

@@ -6,7 +6,8 @@ namespace RA_Global
 {
 constexpr std::uint8_t const animationFPS = 60;
 inline static constexpr std::string_view const
-    texturePath = "resource/"sv;
+                      texturePath = "resource/"sv;
+constexpr Color const Grey        = Color {37, 37, 37, 255};
 }  // namespace RA_Global
 
 namespace RA_Util
@@ -189,6 +190,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
 */
 [[nodiscard]] [[maybe_unused]]
 auto genGridTexture(GridInfo const & grid,
+                    int const        lineThickness   = 10,
                     Color const      lineColor       = WHITE,
                     Color const      backgroundColor = BLACK) noexcept
     -> Texture2D
@@ -201,24 +203,18 @@ auto genGridTexture(GridInfo const & grid,
     float yOffset {grid.rect.y};
     for (unsigned int i {}; i <= grid.rowCount; ++i)
     {
-        ImageDrawLine(&img,
-                      static_cast<int>(grid.rect.x),
-                      static_cast<int>(yOffset),
-                      static_cast<int>(grid.rect.width + grid.rect.x),
-                      static_cast<int>(yOffset),
-                      lineColor);
+        Vector2 const v0 {grid.rect.x, yOffset};
+        Vector2 const v1 {grid.rect.width + grid.rect.x, yOffset};
+        ImageDrawLineEx(&img, v0, v1, lineThickness, lineColor);
         yOffset += grid.cellSize.y;
     }
     // draw
     float xOffset {grid.rect.x};
     for (unsigned int i {}; i <= grid.columnCount; ++i)
     {
-        ImageDrawLine(&img,
-                      static_cast<int>(xOffset),
-                      static_cast<int>(grid.rect.y),
-                      static_cast<int>(xOffset),
-                      static_cast<int>(grid.rect.height + grid.rect.y),
-                      lineColor);
+        Vector2 const v0 {xOffset, grid.rect.y};
+        Vector2 const v1 {xOffset, grid.rect.height + grid.rect.y};
+        ImageDrawLineEx(&img, v0, v1, lineThickness, lineColor);
         xOffset += grid.cellSize.x;
         // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
     }
@@ -320,7 +316,36 @@ auto mapTouchToGridCell(GridInfo const & grid,
                                  grid.cellSize.y},
                       currentIndex};
 }
+/*
+ * @Warning: this function just work with 3*3 grid
+ * @Note : passed index should start from 1 to 3
+ * @Goal: get and index of a rectangle on the grid and return center
+ * point of that rectangle
+ * // TODO: reowrk to work with other dimensions
+ */
+[[maybe_unused]] [[nodiscard]]
+auto index2PointOnGrid(int index, GridInfo const & grid) noexcept
+    -> Vector2
+{
+    checkAtRuntime((index <= 0 ||
+                    index > (grid.columnCount * grid.rowCount)),
+                   "index is not correct e.g:(1 to 9)"sv);
+    int ix = (index % grid.columnCount == 0)
+                 ? 0
+                 : (index % grid.columnCount > 1 ? 1 : grid.columnCount - 1);
 
+    int iy = ((float)index / (float)grid.rowCount > 2.f
+                  ? 0
+                  : ((float)index / (float)grid.rowCount > 1.f
+                         ? 1
+                         : grid.rowCount - 1));
+
+    int x = grid.rect.x + (ix * grid.cellSize.x) +
+            (grid.cellSize.x / 2.f);
+    int y = grid.rect.y + (iy * grid.cellSize.y) +
+            (grid.cellSize.y / 2.f);
+    return {x / 1.f, y / 1.f};
+}
 }  // namespace RA_Util
 
 namespace RA_Anim
@@ -501,6 +526,9 @@ auto operator==(ColoredRect const & lhs, ColoredRect const & rhs) noexcept
 {
     return (lhs.rect.x == rhs.rect.x && lhs.rect.y == rhs.rect.y);
 }
+// game glob vars
+Vector2      mousePos {};
+unsigned int framCounter {};
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
@@ -510,15 +538,15 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     InitWindow(0, 0, "FirstGame");
     auto const height = GetScreenHeight();
     auto const width  = GetScreenWidth();
-    auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(fps);
+    // auto const fps    = GetMonitorRefreshRate(0);
+    SetTargetFPS(30);
 
     auto const gridRect = RA_Util::
         placeRelativeCenter(Rectangle {0.f,
                                        0.f,
                                        static_cast<float>(width),
                                        static_cast<float>(height)},
-                            80,
+                            50,
                             80);
 
     auto const gridinfo = RA_Util::createGridInfo(gridRect, column, row);
@@ -530,16 +558,18 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     gridTextureinfo.rect.y = 0.f;
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridTextureinfo, WHITE, BLACK)};
+        RA_Util::genGridTexture(gridTextureinfo, 30, RA_Global::Grey, BLACK)};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
-    Vector2 mousePos {};
+    // indexes of rects that caus win
+    std::array<int, 3> indexCausWin {};
 
     bool isEnd       = false;
     bool isWin       = false;
     bool isTie       = false;
     bool canRegister = false;
+    bool canReset    = false;
 
     Camera2D const camera {.offset   = Vector2 {},
                            .target   = Vector2 {},
@@ -553,24 +583,39 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // current player
     Player* currentPlayer = &p1;
     Player* wonPlayer {nullptr};
+    // reset btn ui
+    Rectangle const resetBtn {.x      = width - 400.f,
+                              .y      = 200.f,
+                              .width  = 300.f,
+                              .height = 150.f};
 
     // game loop
     while (!WindowShouldClose() && !isEnd)
     {
         // input
         {
-            if (IsKeyPressed(KEY_ESCAPE))
-                isEnd = true;
-            else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-                canRegister = true;
-            else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+            framCounter++;
+            if (framCounter >= 3)
+            {
+                mousePos    = GetTouchPosition(0);
+                framCounter = 0;
                 canRegister = false;
+                if (IsKeyPressed(KEY_ESCAPE))
+                    isEnd = true;
+                else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                    canRegister = true;
+                // ui hit detection
+                if (CheckCollisionPointRec(mousePos, resetBtn) &&
+                    canRegister)
+                {
+                    canReset = true;
+                }
+            }
         }
         // update
         {
             if (canRegister && !isWin && !isTie)
             {
-                mousePos = GetTouchPosition(0);
 
                 auto const filteredRect {
                     RA_Util::mapTouchToGridCell(gridinfo, mousePos)};
@@ -579,10 +624,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     auto const [currentRect,
                                 indexRect] = filteredRect.value();
-                    // if not find the value push it to vector
                     ColoredRect newRect {};
-                    newRect.rect  = currentRect;
+                    newRect.rect = RA_Util::placeRelativeCenter(currentRect,
+                                                                75,
+                                                                75);
                     newRect.color = currentPlayer->rectColor;
+                    // if not find the value push it to vector
                     if (std::ranges::find(std::cbegin(rects),
                                           std::cend(rects),
                                           newRect) == std::cend(rects))
@@ -606,6 +653,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 // if both bit is 1
                                 if (currentPlayer->moves[i] && n[i])
                                 {
+                                    indexCausWin[counter] = static_cast<int>(
+                                        i + 1);
                                     counter++;
                                 }
                             }
@@ -627,28 +676,54 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                             currentPlayer = &p1;
                         }
                     }
-                    else if (rects.size() == 9 && !isWin && !isTie)
+                    else if (rects.size() == (row * column) &&
+                             !isWin && !isTie)
                     {
                         isTie = true;
                     }
                 }
             }
+            if (canReset)
+            {
+                isEnd         = false;
+                isTie         = false;
+                isWin         = false;
+                p1.moves      = {};
+                p2.moves      = {};
+                currentPlayer = &p1;
+                wonPlayer     = nullptr;
+                rects.clear();
+                indexCausWin.fill(0);
+                canReset = false;
+            }
         }
         // draw
         {
-            ClearBackground(WHITE);
+            ClearBackground(RA_Global::Grey);
             BeginDrawing();
             BeginMode2D(camera);
             DrawTexture(gridTexture,
                         static_cast<int>(gridinfo.rect.x),
                         static_cast<int>(gridinfo.rect.y),
-                        RED);
-            DrawText(TextFormat("resulation : %d x %d", width, height),
-                     10.f,
-                     10.f,
-                     22,
-                     BLACK);
-            DrawText(TextFormat("FPS: %d", GetFPS()), 10.f, 40.f, 22, BLACK);
+                        WHITE);
+            // UI
+            {
+                DrawText(TextFormat("resulation : %d x %d", width, height),
+                         10.f,
+                         10.f,
+                         22,
+                         WHITE);
+                DrawText(TextFormat("FPS: %d", GetFPS()), 10.f, 40.f, 22, WHITE);
+
+                DrawRectangleRoundedLinesEx(resetBtn, .5f, 1, 5, WHITE);
+                DrawText("Reset",
+                         resetBtn.x + (resetBtn.width / 2.f) - 31,
+                         resetBtn.y + (resetBtn.height / 2.f) - 11,
+                         25,
+                         WHITE);
+            }
+            // End UI
+
             for (auto const & rect : rects)
             {
                 DrawRectangleRec(rect.rect, rect.color);
@@ -656,16 +731,39 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             if (isWin)
             {
                 if (wonPlayer)
-                    DrawText(TextFormat("Player %d WON", wonPlayer->id),
-                             width / 2,
-                             15.f,
-                             25,
+                    DrawText(TextFormat("Player %d WON", wonPlayer->id + 1),
+                             width / 2 - 200,
+                             5.f,
+                             60,
                              wonPlayer->rectColor);
+                auto const v {RA_Util::index2PointOnGrid(indexCausWin[0],
+                                                         gridinfo)};
+                DrawCircle(v.x, v.y, 15.f, RA_Global::Grey);
+                auto const v1 {
+                    RA_Util::index2PointOnGrid(indexCausWin[1], gridinfo)};
+                DrawCircle(v1.x, v1.y, 15.f, RA_Global::Grey);
+                auto const v2 {
+                    RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
+                DrawCircle(v2.x, v2.y, 15.f, RA_Global::Grey);
+
+                DrawLineEx(v, v2, 10.f, RA_Global::Grey);
             }
             else if (isTie)
             {
 
-                DrawText("The game is Tie", width / 2, 15.f, 25, BLACK);
+                DrawText("The game is Tie", width / 2 - 400, 5.f, 100, WHITE);
+                auto const v {RA_Util::index2PointOnGrid(indexCausWin[0],
+                                                         gridinfo)};
+            }
+            else
+            {
+
+                DrawText(TextFormat("Player %d Turn",
+                                    currentPlayer->id + 1),
+                         width / 2 - 200,
+                         10.f,
+                         50,
+                         currentPlayer->rectColor);
             }
             EndMode2D();
             EndDrawing();
