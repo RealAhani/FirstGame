@@ -12,6 +12,55 @@ constexpr Color const Grey        = Color {37, 37, 37, 255};
 
 namespace RA_Util
 {
+
+// template <typename T, typename K>
+// class GRandom
+// {
+// public:
+
+//     GRandom()  = delete;
+//     ~GRandom() = default;
+//     GRandom(K min, K max) : m_rand_distro {min, max}
+//     {
+//     }
+//     T GetRandom() const noexcept
+//     {
+//         return const_cast<GRandom &>(*this).GetRandom();
+//     }
+//     T GetRandom() noexcept
+//     {
+//         return Create_Random();
+//     }
+
+// private:
+
+//     T Create_Random()
+//     {
+//         return m_rand_distro(m_rand_32);
+//     }
+//     static std::mt19937 & Init_Rand_With_Seed()
+//     {
+//         std::random_device rd {};
+//         std::seed_seq seed {static_cast<std::mt19937::result_type>(
+//                                 std::chrono::steady_clock::now()
+//                                     .time_since_epoch()
+//                                     .count()),
+//                             rd(),
+//                             rd(),
+//                             rd(),
+//                             rd(),
+//                             rd(),
+//                             rd(),
+//                             rd()};
+//         static std::mt19937 rand {seed};
+//         return rand;
+//     }
+
+// private:
+
+//     mutable std::uniform_real_distribution<> m_rand_distro {};
+//     inline static std::mt19937 m_rand_32 {Init_Rand_With_Seed()};
+// };
 /*
  * @Goal: check an expresion in runtime if not android
  * @Note: pass a true condition that you need like percent>100 fail
@@ -320,7 +369,7 @@ auto mapTouchToGridCell(GridInfo const & grid,
  * @Warning: this function just work with 3*3 grid
  * @Note : passed index should start from 1 to 3
  * @Goal: get and index of a rectangle on the grid and return center
- * point of that rectangle
+ * point of that rectangle point of that rectangle
  * // TODO: reowrk to work with other dimensions
  */
 [[maybe_unused]] [[nodiscard]]
@@ -346,12 +395,28 @@ auto index2PointOnGrid(int index, GridInfo const & grid) noexcept
             (grid.cellSize.y / 2.f);
     return {x / 1.f, y / 1.f};
 }
+[[nodiscard]] [[maybe_unused]]
+auto moveTowards(Vector2 & p1, Vector2 const & p2, double step) noexcept
+    -> void
+{
+    double dx     = p2.x - p1.x;
+    double dy     = p2.y - p1.y;
+    double length = std::sqrt(dx * dx + dy * dy);
+
+    if (length > 0 && step < length)
+    {  // Avoid overshooting
+        p1.x += (dx / length) * step;
+        p1.y += (dy / length) * step;
+    }
+    else
+    {
+        p1 = p2;  // Snap to target if within step size
+    }
+}
 }  // namespace RA_Util
 
 namespace RA_Anim
 {
-// class Animation2D{
-// };
 
 // TODO: it need a texture that support zBuffer
 struct AnimData
@@ -491,11 +556,21 @@ auto updateAnim(AnimData & data) noexcept -> void
 }  // namespace RA_Anim
 }  // namespace
 
+// game glob vars
 constexpr int const row    = 3;
 constexpr int const column = 3;
+Vector2             mousePos {};
+unsigned int        inputFramCounter {};
 // win condition should check this table to state the winner
 inline static constexpr std::array<std::bitset<9>, 8> const
     winTable {0x007, 0x038, 0x049, 0x054, 0x092, 0x111, 0x124, 0x1c0};
+
+unsigned int winUIFramCounter {};
+std::uint8_t stateUIAnim {};
+Vector2      winUINewPint {};
+
+// RA_Util::GRandom<int, double> Grndm(0.f, 1000.f);
+
 struct Player
 {
     std::bitset<row * column> moves;
@@ -526,12 +601,41 @@ auto operator==(ColoredRect const & lhs, ColoredRect const & rhs) noexcept
 {
     return (lhs.rect.x == rhs.rect.x && lhs.rect.y == rhs.rect.y);
 }
-// game glob vars
-Vector2      mousePos {};
-unsigned int framCounter {};
+struct particle
+{
+    Rectangle rect;
+    b2BodyId  bodyID;
+};
+b2WorldId initWorldOfBox2d()
+{
+    b2WorldDef   worldDef = {b2DefaultWorldDef()};
+    b2Vec2 const gravity  = {0.f, -10.f};
+    worldDef.gravity      = gravity;
+    b2WorldId worldID     = {b2CreateWorld(&worldDef)};
+    worldDef.enableSleep  = true;
+    return worldID;
+}
+b2BodyId creatDynamicBody(particle & pr, b2WorldId const & worldID)
+{
+    // Create a dynamic box (box2d-related)
+    b2BodyDef boxDef = {b2DefaultBodyDef()};
+    boxDef.position  = b2Vec2 {-pr.rect.x, -pr.rect.y};
+    boxDef.type      = b2_dynamicBody;
+    boxDef.rotation  = b2MakeRot(30.f * DEG2RAD);
+
+    b2BodyId const  boxBodyId = {b2CreateBody(worldID, &boxDef)};
+    b2Polygon const boxShape  = {
+        b2MakeBox(pr.rect.width / 2.f, pr.rect.height / 2.f)};
+    b2ShapeDef boxShapeDef = {b2DefaultShapeDef()};
+    boxShapeDef.density    = 1.f;
+    boxShapeDef.friction   = 0.7f;
+    b2CreatePolygonShape(boxBodyId, &boxShapeDef, &boxShape);
+    return boxBodyId;
+}
 
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
+
     // init
     SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
                    FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
@@ -539,7 +643,28 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     auto const height = GetScreenHeight();
     auto const width  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(30);
+    SetTargetFPS(60);
+
+    // box2d init of the world of the game (box2d-related)
+    // Simulating setting (box2d-related)
+    b2WorldId             worldID = initWorldOfBox2d();
+    std::vector<particle> particles {};
+    particles.reserve(100);
+    // create dynamic bodies
+    for (size_t i {}; i < 100; ++i)
+    {
+        particle pr {};
+        pr.rect.x      = width / 2.f;
+        pr.rect.y      = -45;
+        pr.rect.height = 250;
+        pr.rect.width  = 250;
+        pr.bodyID      = creatDynamicBody(pr, worldID);
+        particles.push_back(pr);
+    }
+
+
+    float const  timeStep     = {1.f / 15.f};  // 60HZ
+    int8_t const subStepCount = {3};
 
     auto const gridRect = RA_Util::
         placeRelativeCenter(Rectangle {0.f,
@@ -584,8 +709,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Player* currentPlayer = &p1;
     Player* wonPlayer {nullptr};
     // reset btn ui
-    Rectangle const resetBtn {.x      = width - 400.f,
-                              .y      = 200.f,
+    Rectangle const resetBtn {.x      = 50.f,
+                              .y      = gridinfo.rect.y,
                               .width  = 300.f,
                               .height = 150.f};
 
@@ -594,12 +719,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     {
         // input
         {
-            framCounter++;
-            if (framCounter >= 3)
+            inputFramCounter++;
+            if (inputFramCounter >= 2)
             {
-                mousePos    = GetTouchPosition(0);
-                framCounter = 0;
-                canRegister = false;
+                mousePos         = GetTouchPosition(0);
+                inputFramCounter = 0;
+                canRegister      = false;
                 if (IsKeyPressed(KEY_ESCAPE))
                     isEnd = true;
                 else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
@@ -614,6 +739,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // update
         {
+            // box2d
+            //  Update world state (box2d-related)
+            b2World_Step(worldID, timeStep, subStepCount);
+
             if (canRegister && !isWin && !isTie)
             {
 
@@ -661,8 +790,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                             // if 3 bit is set it means you match one of the winTable numbers
                             if (counter == 3)
                             {
-                                isWin     = true;
-                                wonPlayer = currentPlayer;
+                                isWin        = true;
+                                wonPlayer    = currentPlayer;
+                                winUINewPint = {
+                                    RA_Util::index2PointOnGrid(indexCausWin[2],
+                                                               gridinfo)};
                                 break;
                             }
                         }
@@ -694,7 +826,15 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 wonPlayer     = nullptr;
                 rects.clear();
                 indexCausWin.fill(0);
-                canReset = false;
+                canReset         = false;
+                winUIFramCounter = 0;
+                stateUIAnim      = 0;
+                winUINewPint     = {};
+                for (auto pr : particles)
+                {
+                    pr.rect.x = width / 2.f;
+                    pr.rect.y = 0;
+                }
             }
         }
         // draw
@@ -709,18 +849,20 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             // UI
             {
                 DrawText(TextFormat("resulation : %d x %d", width, height),
-                         10.f,
+                         50.f,
                          10.f,
                          22,
                          WHITE);
-                DrawText(TextFormat("FPS: %d", GetFPS()), 10.f, 40.f, 22, WHITE);
+                DrawText(TextFormat("FPS: %d", GetFPS()), 50.f, 40.f, 22, WHITE);
 
+                // reset btn
                 DrawRectangleRoundedLinesEx(resetBtn, .5f, 1, 5, WHITE);
                 DrawText("Reset",
                          resetBtn.x + (resetBtn.width / 2.f) - 31,
                          resetBtn.y + (resetBtn.height / 2.f) - 11,
                          25,
                          WHITE);
+                // reset btn
             }
             // End UI
 
@@ -728,30 +870,58 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             {
                 DrawRectangleRec(rect.rect, rect.color);
             }
-            if (isWin)
+            if (isWin && wonPlayer)
             {
-                if (wonPlayer)
-                    DrawText(TextFormat("Player %d WON", wonPlayer->id + 1),
-                             width / 2 - 200,
-                             5.f,
-                             60,
-                             wonPlayer->rectColor);
+                winUIFramCounter++;
+                std::string winner;
+                if (wonPlayer->id == 0)
+                    winner = "Red Won"s;
+                else
+                    winner = "Blue Won"s;
+                DrawText(winner.c_str(),
+                         width / 2 - 200,
+                         5.f,
+                         100,
+                         wonPlayer->rectColor);
                 auto const v {RA_Util::index2PointOnGrid(indexCausWin[0],
                                                          gridinfo)};
-                DrawCircle(v.x, v.y, 15.f, RA_Global::Grey);
                 auto const v1 {
                     RA_Util::index2PointOnGrid(indexCausWin[1], gridinfo)};
-                DrawCircle(v1.x, v1.y, 15.f, RA_Global::Grey);
                 auto const v2 {
                     RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
-                DrawCircle(v2.x, v2.y, 15.f, RA_Global::Grey);
+                if (winUIFramCounter >= 10)
+                {
+                    DrawCircle(v.x, v.y, 25.f, BLACK);
+                    if (winUIFramCounter == 10)
+                        stateUIAnim += 1;
+                }
+                if (winUIFramCounter >= 20)
+                {
+                    DrawCircle(v1.x, v1.y, 25.f, BLACK);
+                    if (winUIFramCounter == 20)
+                        stateUIAnim += 1;
+                }
+                if (winUIFramCounter >= 30)
+                {
+                    DrawCircle(v2.x, v2.y, 25.f, BLACK);
+                    if (winUIFramCounter == 30)
+                        stateUIAnim += 1;
+                }
 
-                DrawLineEx(v, v2, 10.f, RA_Global::Grey);
+                if ((120 >= winUIFramCounter || winUIFramCounter >= 30) &&
+                    stateUIAnim == 3)
+                {
+
+                    RA_Util::moveTowards(winUINewPint, v, 20);
+                    DrawLineEx(winUINewPint, v2, 10.f, BLACK);
+                    if (winUIFramCounter == 200)
+                        winUIFramCounter = 200;
+                }
             }
             else if (isTie)
             {
 
-                DrawText("The game is Tie", width / 2 - 400, 5.f, 100, WHITE);
+                DrawText("Tie", width / 2 - 100, 5.f, 100, WHITE);
                 auto const v {RA_Util::index2PointOnGrid(indexCausWin[0],
                                                          gridinfo)};
             }
@@ -765,11 +935,30 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                          50,
                          currentPlayer->rectColor);
             }
+            // draw particles
+            {
+                for (auto pr : particles)
+                {
+                    b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
+                    DrawRectanglePro(Rectangle {.x = -boxPos.x,
+                                                .y = -boxPos.y,
+                                                .width = pr.rect.width,
+                                                .height = pr.rect.height},
+                                     Vector2 {.x = (pr.rect.width / 2.f),
+                                              .y = (pr.rect.height / 2.f)},
+                                     b2Rot_GetAngle(
+                                         b2Body_GetRotation(pr.bodyID)) *
+                                         RAD2DEG,
+                                     currentPlayer->rectColor);
+                }
+            }
             EndMode2D();
             EndDrawing();
         }
     }
     // clean-up
+    b2DestroyWorld(worldID);
+    worldID = b2_nullWorldId;
     CloseWindow();
     return 0;
 }
