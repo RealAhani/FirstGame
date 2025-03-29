@@ -8,10 +8,10 @@ namespace RA_Global
 constexpr std::uint8_t const animationFPS = 60;
 
 inline static constexpr std::string_view const
-    texturePath = "resource/"sv;
+    texturePath = "resource/textures/"sv;
 
 inline static constexpr std::string_view const
-    fontPath = "resource/font/"sv;
+    fontPath = "resource/fonts/"sv;
 
 enum class EFileType : std::uint8_t
 {
