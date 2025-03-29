@@ -1,3 +1,4 @@
+#include <string_view>
 namespace
 {
 using namespace std::string_literals;
@@ -5,10 +6,50 @@ using namespace std::string_view_literals;
 namespace RA_Global
 {
 constexpr std::uint8_t const animationFPS = 60;
+
 inline static constexpr std::string_view const
     texturePath = "resource/"sv;
-inline static constexpr std::string const fontPath = "resource/font/"s;
+
+inline static constexpr std::string_view const
+    fontPath = "resource/font/"sv;
+
+enum class EFileType : std::uint8_t
+{
+    Texture = 0,
+    Font
+};
 constexpr Color const Grey = Color {37, 37, 37, 255};
+
+/*
+ *@Goal: return the path to file based on fileType
+ *@Note: put the file in
+ *{currentProject}/resources/assets/resource/{fileType-folderName}/fileType
+ */
+[[nodiscard]] [[maybe_unused]]
+auto pathToFile(std::string_view const fileName, EFileType const fileType)
+    -> std::string const
+{
+
+    std::string path;
+    switch (fileType)
+    {
+        case EFileType::Font:
+        {
+            path.reserve(RA_Global::fontPath.size() + fileName.size());
+            path.append(RA_Global::fontPath);
+            break;
+        }
+        case EFileType::Texture:
+        {
+            path.reserve(RA_Global::texturePath.size() + fileName.size());
+            path.append(RA_Global::texturePath);
+            break;
+        }
+    }
+    path.append(fileName);
+    return path;
+}
+
 }  // namespace RA_Global
 
 namespace RA_Util
@@ -410,10 +451,12 @@ auto initAnim(std::string_view const fileName,
               int const              speed,
               int const              speedMax) -> AnimData
 {
-    std::string path;
-    path.reserve(RA_Global::texturePath.size() + fileName.size());
-    path.append(RA_Global::texturePath);
-    path.append(fileName);
+    // std::string path;
+    // path.reserve(RA_Global::texturePath.size() + fileName.size());
+    // path.append(RA_Global::texturePath);
+    // path.append(fileName);
+    std::string const path {
+        RA_Global::pathToFile(fileName, RA_Global::EFileType::Texture)};
 
     if (FileExists(path.c_str()))
     {
@@ -708,27 +751,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetTargetFPS(fps);
 
     // font loading
-    auto const font = LoadFont(std::string {
-        RA_Global::fontPath +
-        "No"
-        "to"
-        "Sa"
-        "ns"
-        "-V"
-        "ar"
-        "ia"
-        "bl"
-        "eF"
-        "on"
-        "t_"
-        "wd"
-        "th"
-        ",w"
-        "gh"
-        "t."
-        "tt"
-        "f"}
-                                   .c_str());
+
+    auto const font = LoadFont(
+        RA_Global::pathToFile("NotoSans-VariableFont_wdth,wght.ttf"sv,
+                              RA_Global::EFileType::Font)
+            .c_str());
+
 
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
