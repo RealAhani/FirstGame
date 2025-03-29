@@ -1,4 +1,3 @@
-#include "box2d/box2d.h"
 namespace
 {
 using namespace std::string_literals;
@@ -7,8 +6,9 @@ namespace RA_Global
 {
 constexpr std::uint8_t const animationFPS = 60;
 inline static constexpr std::string_view const
-                      texturePath = "resource/"sv;
-constexpr Color const Grey        = Color {37, 37, 37, 255};
+    texturePath = "resource/"sv;
+inline static constexpr std::string const fontPath = "resource/font/"s;
+constexpr Color const Grey = Color {37, 37, 37, 255};
 }  // namespace RA_Global
 
 namespace RA_Util
@@ -533,7 +533,7 @@ struct ColoredRect
     Color     color;
     ColoredRect()  = default;
     ~ColoredRect() = default;
-    ColoredRect & operator=(ColoredRect const & rhs)
+    auto operator=(ColoredRect const & rhs) -> ColoredRect &
     {
         if (this == &rhs)
             return *this;
@@ -541,14 +541,18 @@ struct ColoredRect
         color = rhs.color;
         return *this;
     }
+    [[maybe_unused]]
+    auto operator==(ColoredRect const & rhs) noexcept -> bool
+    {
+        return (rect.x == rhs.rect.x && rect.y == rhs.rect.y);
+    }
+    [[maybe_unused]]
+    auto operator==(ColoredRect const & rhs) const noexcept -> bool
+    {
+        return (const_cast<ColoredRect &>(*this) == rhs);
+    }
 };
 // Define the operator== function outside the class
-[[maybe_unused]]
-auto operator==(ColoredRect const & lhs, ColoredRect const & rhs) noexcept
-    -> bool
-{
-    return (lhs.rect.x == rhs.rect.x && lhs.rect.y == rhs.rect.y);
-}
 struct particle
 {
     Rectangle rect;
@@ -585,7 +589,7 @@ unsigned int                 winUIFramCounter {};
 // win condition should check this table to state the winner
 inline static constexpr std::array<std::bitset<9>, 8> const
     winTable {0x007, 0x038, 0x049, 0x054, 0x092, 0x111, 0x124, 0x1c0};
-RA_Util::GRandom const gRandom(-200.f, 1000.f);
+RA_Util::GRandom const gRandom(0.f, 1400);
 
 
 namespace RA_Particle
@@ -663,7 +667,6 @@ auto drawParticles(std::vector<particle> const & particles,
         {
             // if (b2Body_IsEnabled(pr.bodyID))
             // {
-
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
             DrawRectanglePro(Rectangle {.x      = -boxPos.x,
                                         .y      = -boxPos.y,
@@ -704,15 +707,38 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // auto const fps    = GetMonitorRefreshRate(0);
     SetTargetFPS(fps);
 
+    // font loading
+    auto const font = LoadFont(std::string {
+        RA_Global::fontPath +
+        "No"
+        "to"
+        "Sa"
+        "ns"
+        "-V"
+        "ar"
+        "ia"
+        "bl"
+        "eF"
+        "on"
+        "t_"
+        "wd"
+        "th"
+        ",w"
+        "gh"
+        "t."
+        "tt"
+        "f"}
+                                   .c_str());
+
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
     b2WorldId const        worldID = RA_Particle::initWorldOfBox2d();
     constexpr float const  timeStep {1.f / 30.f};  // 30HZ
     constexpr int8_t const subStepCount {3};
     std::vector<particle>  particles {};
-    particles.reserve(2500);
+    particles.reserve(1000);
     // create dynamic bodies
-    for (size_t i {}; i < 2500; ++i)
+    for (size_t i {}; i < 1000; ++i)
     {
         particle pr {};
         pr.rect.x      = gRandom.GetRandom();
@@ -740,7 +766,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     gridTextureinfo.rect.y = 0.f;
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridTextureinfo, 30, RA_Global::Grey, BLACK)};
+        RA_Util::genGridTexture(gridTextureinfo, 5, WHITE, RA_Global::Grey)};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
@@ -815,8 +841,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                         ColoredRect newRect {};
                         // new rect should adjust size and coordinate inside the parent (touched rect)
                         newRect.rect = RA_Util::placeRelativeCenter(currentRect,
-                                                                    75,
-                                                                    75);
+                                                                    55,
+                                                                    55);
                         // adjust color based on current player
                         newRect.color = currentPlayer->rectColor;
                         // if this new rect does not exist in buffer add it to buffer
@@ -921,20 +947,29 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                         WHITE);
             // UI
             {
-                DrawText(TextFormat("resulation : %d x %d", gWidth, gHeight),
-                         50.f,
-                         10.f,
-                         22,
-                         WHITE);
-                DrawText(TextFormat("FPS: %d", GetFPS()), 50.f, 40.f, 22, WHITE);
+                DrawTextEx(font,
+                           TextFormat("resulation : %d x %d", gWidth, gHeight),
+                           Vector2 {50.f, 10.f},
+                           (float)font.baseSize,
+                           2,
+                           WHITE);
+                DrawTextEx(font,
+                           TextFormat("FPS: %d", GetFPS()),
+                           Vector2 {50.f, 40.f},
+                           (float)font.baseSize,
+                           2,
+                           WHITE);
 
                 // reset btn
                 DrawRectangleRoundedLinesEx(resetBtn, .5f, 1, 5, WHITE);
-                DrawText("Reset",
-                         resetBtn.x + (resetBtn.width / 2.f) - 31,
-                         resetBtn.y + (resetBtn.height / 2.f) - 11,
-                         25,
-                         WHITE);
+                DrawTextEx(font,
+                           "Reset",
+                           Vector2 {resetBtn.x + (resetBtn.width / 2.f) - 31,
+                                    resetBtn.y +
+                                        (resetBtn.height / 2.f) - 11},
+                           (float)font.baseSize,
+                           2,
+                           WHITE);
                 // reset btn
             }
             // End UI
@@ -949,22 +984,26 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             {
                 case GameState::none:
                 {
-                    DrawText(std::string {currentPlayer->name + " Turn"s}
-                                 .c_str(),
-                             gWidth / 2 - 200,
-                             10.f,
-                             100,
-                             currentPlayer->rectColor);
+                    DrawTextEx(font,
+                               "Turn",
+                               Vector2 {70.f, 350.f},
+                               (float)font.baseSize,
+                               2,
+                               currentPlayer->rectColor);
                     break;
                 }
                 case GameState::win:
                 {
                     winUIFramCounter++;
-                    DrawText(std::string {wonPlayer->name + " Won"s}.c_str(),
-                             gWidth / 2 - 200,
-                             5.f,
-                             100,
-                             wonPlayer->rectColor);
+                    DrawTextEx(font,
+                               std::string {wonPlayer->name + " Won"s}.c_str(),
+                               Vector2 {static_cast<float>(
+                                            gWidth / 2.f - 200.f),
+                                        5.f},
+                               (float)font.baseSize * 2,
+                               2,
+                               wonPlayer->rectColor);
+
                     // animation of wining
                     auto const v {
                         RA_Util::index2PointOnGrid(indexCausWin[0],
@@ -975,43 +1014,46 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     auto const v2 {
                         RA_Util::index2PointOnGrid(indexCausWin[2],
                                                    gridinfo)};
+                    constexpr Color const col = WHITE;
                     if (winUIFramCounter >= 10)
                     {
-                        DrawCircle(v.x, v.y, 25.f, RA_Global::Grey);
+                        DrawCircle(v.x, v.y, 25.f, col);
                     }
                     if (winUIFramCounter >= 20)
                     {
-                        DrawCircle(v1.x, v1.y, 25.f, RA_Global::Grey);
+                        DrawCircle(v1.x, v1.y, 25.f, col);
                     }
                     if (winUIFramCounter >= 30)
                     {
-                        DrawCircle(v2.x, v2.y, 25.f, RA_Global::Grey);
+                        DrawCircle(v2.x, v2.y, 25.f, col);
                     }
                     if (winUIFramCounter >= 40)
                     {
                         RA_Util::moveTowards(uIPointAnimationWin, v, 20);
-                        DrawLineEx(uIPointAnimationWin,
-                                   v2,
-                                   10.f,
-                                   RA_Global::Grey);
+                        DrawLineEx(uIPointAnimationWin, v2, 10.f, col);
                     }
-                    if (winUIFramCounter >= 60)
+                    if (winUIFramCounter >= 45)
                     {
                         RA_Particle::drawParticles(particles,
                                                    wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 700)
                     {
-                        winUIFramCounter = 60;
+                        winUIFramCounter = 45;
                     }
                     break;
                 }
                 case GameState::tie:
                 {
-                    DrawText("Tie", gWidth / 2 - 100, 5.f, 100, WHITE);
-                    auto const v {
-                        RA_Util::index2PointOnGrid(indexCausWin[0],
-                                                   gridinfo)};
+                    DrawTextEx(font,
+                               "Tie",
+                               Vector2 {static_cast<float>(
+                                            gWidth / 2.f - 100.f),
+                                        5.f},
+                               (float)font.baseSize,
+                               2.f,
+                               WHITE);
+
                     RA_Particle::drawParticles(particles, WHITE);
                     break;
                 }
@@ -1028,6 +1070,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
     b2DestroyWorld(worldID);
     // worldID = b2_nullWorldId;
+    UnloadFont(font);
     CloseWindow();
     return 0;
 }
