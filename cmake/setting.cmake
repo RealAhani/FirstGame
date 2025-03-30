@@ -111,7 +111,7 @@ option(HAS_LIB ON "internal library can enabled/disabled")
 set(P_INTERNAL_LIB_TYPE "STATIC" CACHE STRING "internal library type (STATIC/SHARED)")
 
 # External fetched libs type
-set(P_EXTERNAL_LIBS_TYPE "SHARED" CACHE STRING "Fetched librareis type (STATIC/SHARED)")
+set(P_EXTERNAL_LIBS_TYPE "STATIC" CACHE STRING "Fetched librareis type (STATIC/SHARED)")
 
 # ################### ThirdParty Dependencies or Fetch Libraries from github (External Libraries)
 # URLS          = [raylib git url;box2d git url]

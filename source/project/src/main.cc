@@ -1,24 +1,22 @@
-#include <string_view>
 namespace
 {
 using namespace std::string_literals;
 using namespace std::string_view_literals;
+
 namespace RA_Global
 {
-constexpr std::uint8_t const animationFPS = 60;
+constexpr u8 const animationFPS = 60;
 
-inline static constexpr std::string_view const
-    texturePath = "resource/textures/"sv;
+inline static constexpr str_v const texturePath = "resource/textures/"sv;
 
-inline static constexpr std::string_view const
-    fontPath = "resource/fonts/"sv;
+inline static constexpr str_v const fontPath = "resource/fonts/"sv;
 
-enum class EFileType : std::uint8_t
+enum class EFileType : u8
 {
     Texture = 0,
     Font
 };
-constexpr Color const Grey = Color {37, 37, 37, 255};
+constexpr Color const grey = Color {37, 37, 37, 255};
 
 /*
  *@Goal: return the path to file based on fileType
@@ -26,11 +24,9 @@ constexpr Color const Grey = Color {37, 37, 37, 255};
  *{currentProject}/resources/assets/resource/{fileType-folderName}/fileType
  */
 [[nodiscard]] [[maybe_unused]]
-auto pathToFile(std::string_view const fileName, EFileType const fileType)
-    -> std::string const
+auto pathToFile(str_v const fileName, EFileType const fileType) -> str
 {
-
-    std::string path;
+    str path;
     switch (fileType)
     {
         case EFileType::Font:
@@ -61,17 +57,21 @@ public:
 
     GRandom()  = delete;
     ~GRandom() = default;
-    explicit GRandom(float const min, float const max) noexcept :
-    randDistro {min, max}
+    explicit GRandom(f32 const min, f32 const max) noexcept :
+    m_randDistro {min, max}
     {
     }
-    float GetRandom() const noexcept
+
+    [[nodiscard]] [[maybe_unused]]
+    auto getRandom() const noexcept -> f32
     {
-        return const_cast<GRandom &>(*this).GetRandom();
+        return const_cast<GRandom &>(*this).getRandom();
     }
-    float GetRandom() noexcept
+
+    [[nodiscard]] [[maybe_unused]]
+    auto getRandom() noexcept -> f32
     {
-        return randDistro(rand32);
+        return m_randDistro(rand32);
     }
 
 private:
@@ -80,19 +80,16 @@ private:
     static auto initRandWithSeed() noexcept -> std::mt19937 &
     {
         std::random_device rd {};
-        std::seed_seq seed {static_cast<std::mt19937::result_type>(
-                                std::chrono::steady_clock::now()
-                                    .time_since_epoch()
-                                    .count()),
-                            static_cast<std::mt19937::result_type>(rd())};
+        std::seed_seq
+                            seed {cast(std::mt19937::result_type,
+                       std::chrono::steady_clock::now().time_since_epoch().count()),
+                  cast(std::mt19937::result_type, rd())};
         static std::mt19937 rand {seed};
         return rand;
     }
 
-private:
-
-    std::uniform_real_distribution<float> randDistro {};
-    inline static std::mt19937            rand32 {initRandWithSeed()};
+    std::uniform_real_distribution<f32> m_randDistro;
+    inline static std::mt19937          rand32 {initRandWithSeed()};
 };
 
 /*
@@ -100,8 +97,7 @@ private:
  * @Note: pass a true condition that you need like percent>100 fail
  */
 [[maybe_unused]]
-auto checkAtRuntime(bool                   faildCondition,
-                    std::string_view const errMsg) noexcept -> void
+auto checkAtRuntime(bool faildCondition, str_v const errMsg) noexcept -> void
 {
 #ifdef DEBUG
     if (myproject::cmake::platform != "Android"sv && faildCondition)
@@ -118,8 +114,8 @@ auto checkAtRuntime(bool                   faildCondition,
  */
 [[nodiscard]] [[maybe_unused]]
 auto placeRelativeCenter(Rectangle const & parentInfo,
-                         uint8_t const     widthPercent,
-                         uint8_t const heightPercent) noexcept -> Rectangle
+                         u8 const          widthPercent,
+                         u8 const          heightPercent) noexcept -> Rectangle
 {
 
     // bounds checking on input args (debug only)
@@ -129,11 +125,11 @@ auto placeRelativeCenter(Rectangle const & parentInfo,
                    "in percentage "
                    "(unsigned int)\n"sv);
 
-    float const newX = parentInfo.x + (parentInfo.width / 2.f);
-    float const newY = parentInfo.y + (parentInfo.height / 2.f);
+    f32 const newX = parentInfo.x + (parentInfo.width / 2.f);
+    f32 const newY = parentInfo.y + (parentInfo.height / 2.f);
 
-    float const newW = parentInfo.width * widthPercent / 100.f;
-    float const newH = parentInfo.height * heightPercent / 100.f;
+    f32 const newW = parentInfo.width * widthPercent / 100.f;
+    f32 const newH = parentInfo.height * heightPercent / 100.f;
 
     return Rectangle {.x      = newX - (newW / 2.f),
                       .y      = newY - (newH / 2.f),
@@ -152,7 +148,7 @@ auto placeRelative(Rectangle const & parentInfo,
                    uint8_t const     xPercentOffset,
                    uint8_t const     yPercentOffset,
                    uint8_t const     wPercentReminded,
-                   uint8_t const hPercentReminded) noexcept -> Rectangle
+                   uint8_t const     hPercentReminded) noexcept -> Rectangle
 {
     // width and height percent reminded checking
     checkAtRuntime((wPercentReminded == 0 || hPercentReminded == 0),
@@ -168,16 +164,15 @@ auto placeRelative(Rectangle const & parentInfo,
                    "in percentage "
                    "(unsigned int)\n"sv);
 
-    float const newX = static_cast<float>(parentInfo.x + parentInfo.width) *
-                       xPercentOffset / 100.f;
-    float const newY = static_cast<float>(parentInfo.y + parentInfo.height) *
-                       yPercentOffset / 100.f;
-    return Rectangle {.x = newX,
-                      .y = newY,
-                      .width = (static_cast<float>(parentInfo.width) - newX) *
+    f32 const newX = cast(f32, parentInfo.x + parentInfo.width) *
+                     xPercentOffset / 100.f;
+    f32 const newY = cast(f32, parentInfo.y + parentInfo.height) *
+                     yPercentOffset / 100.f;
+    return Rectangle {.x     = newX,
+                      .y     = newY,
+                      .width = (cast(f32, parentInfo.width) - newX) *
                                wPercentReminded / 100.f,
-                      .height = (static_cast<float>(parentInfo.height) -
-                                 newY) *
+                      .height = (cast(f32, parentInfo.height) - newY) *
                                 hPercentReminded / 100.f};
 }
 
@@ -201,17 +196,17 @@ struct GridInfo
 [[nodiscard]] [[maybe_unused]]
 inline auto createGridInfo(Rectangle const & gridRect,
                            uint8_t const     columnCount = 2,
-                           uint8_t const rowCount = 2) noexcept -> GridInfo
+                           uint8_t const     rowCount = 2) noexcept -> GridInfo
 {
     // col and row should be bigger than 2X2
     // bounds checking on input args (debug only)
     checkAtRuntime((columnCount < 2 || rowCount < 2),
                    "column and row should be bigger than 2\n"sv);
-    return GridInfo {.rect = Rectangle {.x      = gridRect.x,
-                                        .y      = gridRect.y,
-                                        .width  = gridRect.width,
-                                        .height = gridRect.height},
-                     .cellSize = Vector2 {gridRect.width / columnCount,
+    return GridInfo {.rect        = Rectangle {.x      = gridRect.x,
+                                               .y      = gridRect.y,
+                                               .width  = gridRect.width,
+                                               .height = gridRect.height},
+                     .cellSize    = Vector2 {gridRect.width / columnCount,
                                           gridRect.height / rowCount},
                      .columnCount = columnCount,
                      .rowCount    = rowCount};
@@ -221,12 +216,11 @@ inline auto createGridInfo(Rectangle const & gridRect,
  *@Note: it can be slow if its a static grid use genGridTexture
  */
 [[maybe_unused]]
-auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
-    -> void
+auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> void
 {
     // draw in between lines based on col and row
     // drawing row lines
-    float yOffset {grid.rect.y};
+    f32 yOffset {grid.rect.y};
     for (unsigned int i {}; i <= grid.rowCount; ++i)
     {
         DrawLineV(Vector2 {grid.rect.x, yOffset},
@@ -235,7 +229,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
         yOffset += grid.cellSize.y;
     }
     // drawing column lines
-    float xOffset {grid.rect.x};
+    f32 xOffset {grid.rect.x};
     for (unsigned int i {}; i <= grid.columnCount; ++i)
     {
         DrawLineV(Vector2 {xOffset, grid.rect.y},
@@ -252,17 +246,16 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept
 */
 [[nodiscard]] [[maybe_unused]]
 auto genGridTexture(GridInfo const & grid,
-                    int const        lineThickness   = 10,
-                    Color const      lineColor       = WHITE,
-                    Color const      backgroundColor = BLACK) noexcept
-    -> Texture2D
+                    int const        lineThickness = 10,
+                    Color const      lineColor     = WHITE,
+                    Color const backgroundColor = BLACK) noexcept -> Texture2D
 {
-    Image img = GenImageColor(static_cast<int>(grid.rect.width),
-                              static_cast<int>(grid.rect.height),
+    Image img = GenImageColor(cast(i32, grid.rect.width),
+                              cast(i32, grid.rect.height),
                               backgroundColor);
     // draw in between lines based on col and row
     // drawing row lines
-    float yOffset {grid.rect.y};
+    f32 yOffset {grid.rect.y};
     for (unsigned int i {}; i <= grid.rowCount; ++i)
     {
         Vector2 const v0 {grid.rect.x, yOffset};
@@ -271,14 +264,13 @@ auto genGridTexture(GridInfo const & grid,
         yOffset += grid.cellSize.y;
     }
     // draw
-    float xOffset {grid.rect.x};
+    f32 xOffset {grid.rect.x};
     for (unsigned int i {}; i <= grid.columnCount; ++i)
     {
         Vector2 const v0 {xOffset, grid.rect.y};
         Vector2 const v1 {xOffset, grid.rect.height + grid.rect.y};
         ImageDrawLineEx(&img, v0, v1, lineThickness, lineColor);
         xOffset += grid.cellSize.x;
-        // xOffset = std::clamp<float>(xOffset, startPosX, static_cast<float>(gridWidth));
     }
     Texture2D gridTexture = LoadTextureFromImage(img);
     UnloadImage(img);
@@ -291,7 +283,8 @@ auto genGridTexture(GridInfo const & grid,
  * @Note: check the return velue before use it (nullopt)
  * @Warning: this function on his core does heavily depend on rounding integers
 
- * @Return: selected rectangle and index of it in grid(indexing start from bottom-right and go to left)
+ * @Return: selected rectangle and index of it in grid(indexing start from
+ bottom-right and go to left)
  * e.g for 3*3 grid:
  * 987
  * 654
@@ -308,17 +301,14 @@ auto mapTouchToGridCell(GridInfo const & grid,
                    "grid cell size should not be zero"sv);
 
     // does hit is inside the grid
-    if (hitPos.x < grid.rect.x ||
-        (hitPos.x - grid.rect.x) > grid.rect.width ||
-        hitPos.y < grid.rect.y ||
-        (hitPos.y - grid.rect.y) > grid.rect.height)
+    if (hitPos.x < grid.rect.x || (hitPos.x - grid.rect.x) > grid.rect.width ||
+        hitPos.y < grid.rect.y || (hitPos.y - grid.rect.y) > grid.rect.height)
         return std::nullopt;
 
-    auto const tempRemX = static_cast<std::size_t>(
-        (hitPos.x - grid.rect.x) / grid.cellSize.x);
+    auto const tempRemX = cast(std::size_t,
+                               (hitPos.x - grid.rect.x) / grid.cellSize.x);
 
-    auto x1 = static_cast<std::size_t>(
-        (tempRemX * grid.cellSize.x) + grid.rect.x);
+    auto x1 = static_cast<std::size_t>((tempRemX * grid.cellSize.x) + grid.rect.x);
 
     if (tempRemX == 0)
         x1 = static_cast<std::size_t>(grid.rect.x);
@@ -329,8 +319,7 @@ auto mapTouchToGridCell(GridInfo const & grid,
     auto const tempRemY = static_cast<std::size_t>(
         (hitPos.y - grid.rect.y) / grid.cellSize.y);
 
-    auto y1 = static_cast<std::size_t>(
-        (tempRemY * grid.cellSize.y) + grid.rect.y);
+    auto y1 = static_cast<std::size_t>((tempRemY * grid.cellSize.y) + grid.rect.y);
     if (tempRemY == 0)
         y1 = static_cast<std::size_t>(grid.rect.y);
 
@@ -347,12 +336,8 @@ auto mapTouchToGridCell(GridInfo const & grid,
                                     grid.cellSize.y},
                          RAYWHITE);
         DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f},
-                         10,
-                         RED);
-        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f},
-                         10,
-                         RED);
+        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f}, 10, RED);
+        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f}, 10, RED);
         DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f,
                                   (y1 + grid.cellSize.y) / 1.f},
                          10,
@@ -386,35 +371,37 @@ auto mapTouchToGridCell(GridInfo const & grid,
  * // TODO: reowrk to work with other dimensions
  */
 [[maybe_unused]] [[nodiscard]]
-auto index2PointOnGrid(int index, GridInfo const & grid) noexcept
-    -> Vector2
+auto index2PointOnGrid(u8 index, GridInfo const & grid) noexcept -> Vector2
 {
-    checkAtRuntime((index <= 0 ||
-                    index > (grid.columnCount * grid.rowCount)),
+    checkAtRuntime((index > (grid.columnCount * grid.rowCount)),
                    "index is not correct e.g:(1 to 9)"sv);
-    int ix = (index % grid.columnCount == 0)
-                 ? 0
-                 : (index % grid.columnCount > 1 ? 1 : grid.columnCount - 1);
 
-    int iy = ((float)index / (float)grid.rowCount > 2.f
-                  ? 0
-                  : ((float)index / (float)grid.rowCount > 1.f
-                         ? 1
-                         : grid.rowCount - 1));
+    i32 const ix = (index % grid.columnCount == 0)
+                       ? 0
+                       : (index % grid.columnCount > 1 ? 1 : grid.columnCount - 1);
 
-    int x = grid.rect.x + (ix * grid.cellSize.x) +
-            (grid.cellSize.x / 2.f);
-    int y = grid.rect.y + (iy * grid.cellSize.y) +
-            (grid.cellSize.y / 2.f);
-    return {x / 1.f, y / 1.f};
+    i32 const iy = (cast(f32, index) / cast(f32, grid.rowCount) > 2.f
+                        ? 0
+                        : (cast(f32, index) / cast(f32, grid.rowCount) > 1.f
+                               ? 1
+                               : grid.rowCount - 1));
+
+    i32 const x = cast(i32,
+                       grid.rect.x + (cast(f32, ix) * grid.cellSize.x) +
+                           (grid.cellSize.x / 2.f));
+
+    i32 const y = cast(i32,
+                       grid.rect.y + (cast(f32, iy) * grid.cellSize.y) +
+                           (grid.cellSize.y / 2.f));
+
+    return {cast(f32, x), cast(f32, y)};
 }
 [[maybe_unused]]
-auto moveTowards(Vector2 & p1, Vector2 const & p2, double step) noexcept
-    -> void
+auto moveTowards(Vector2 & p1, Vector2 const & p2, f32 step) noexcept -> void
 {
-    float const dx     = p2.x - p1.x;
-    float const dy     = p2.y - p1.y;
-    float const length = std::sqrt(dx * dx + dy * dy);
+    f32 const dx     = p2.x - p1.x;
+    f32 const dy     = p2.y - p1.y;
+    f32 const length = std::sqrt((dx * dx) + (dy * dy));
 
     if (length > 0.f && step < length)
     {  // Avoid overshooting
@@ -422,9 +409,7 @@ auto moveTowards(Vector2 & p1, Vector2 const & p2, double step) noexcept
         p1.y += (dy / length) * step;
     }
     else
-    {
         p1 = p2;  // Snap to target if within step size
-    }
 }
 }  // namespace RA_Util
 
@@ -436,41 +421,39 @@ struct AnimData
 {
     Texture2D textureAnim;
     Rectangle rect;
-    int const length;  // actual length is length -1
-    int       counter;
-    int       currentFrame;
-    int       currentSpeed;
-    int const defaultSpeed;
-    int const speedMAX;
-    int const speedMIN;
+    i32       counter;
+    i32       currentFrame;
+    i32       currentSpeed;
+    i32 const length;  // actual length is length -1
+    i32 const defaultSpeed;
+    i32 const speedMAX;
+    i32 const speedMIN;
 };
 
 [[nodiscard]] [[maybe_unused]]
-auto initAnim(std::string_view const fileName,
-              int const              animLenght,
-              int const              speed,
-              int const              speedMax) -> AnimData
+auto initAnim(str_v const fileName,
+              int const   animLenght,
+              int const   speed,
+              int const   speedMax) -> AnimData
 {
-    // std::string path;
+    // str path;
     // path.reserve(RA_Global::texturePath.size() + fileName.size());
     // path.append(RA_Global::texturePath);
     // path.append(fileName);
-    std::string const path {
-        RA_Global::pathToFile(fileName, RA_Global::EFileType::Texture)};
+    str const path {RA_Global::pathToFile(fileName, RA_Global::EFileType::Texture)};
 
     if (FileExists(path.c_str()))
     {
         Texture2D const temp = LoadTexture(path.c_str());
         return AnimData {.textureAnim  = temp,
-                         .rect         = {.x     = 0,
-                                          .y     = 0,
-                                          .width = static_cast<float>(
-                                      temp.width / animLenght),
-                                          .height = static_cast<float>(temp.height)},
-                         .length       = animLenght,
+                         .rect         = {.x      = 0,
+                                          .y      = 0,
+                                          .width  = cast(f32, temp.width / animLenght),
+                                          .height = cast(f32, temp.height)},
                          .counter      = 0,
                          .currentFrame = 0,
                          .currentSpeed = speed,
+                         .length       = animLenght,
                          .defaultSpeed = speed,
                          .speedMAX     = speedMax,
                          .speedMIN     = 1};
@@ -558,18 +541,15 @@ auto updateAnim(AnimData & data) noexcept -> void
         limitSpeedAnim(data);
         data.currentFrame++;
 
-        if (data.currentFrame >
-            (data.length - 1))  // start animation frame is zero
+        if (data.currentFrame > (data.length - 1))  // start animation frame is zero
             resetAnim(data);
 
-        data.rect.x = static_cast<float>(data.currentFrame) *
-                      static_cast<float>(data.textureAnim.width) /
-                      static_cast<float>(data.length);
+        data.rect.x = cast(f32, data.currentFrame) *
+                      cast(f32, data.textureAnim.width) / cast(f32, data.length);
     }
 }
 
 }  // namespace RA_Anim
-}  // namespace
 struct ColoredRect
 {
     Rectangle rect;
@@ -585,23 +565,18 @@ struct ColoredRect
         return *this;
     }
     [[maybe_unused]]
-    auto operator==(ColoredRect const & rhs) noexcept -> bool
+    auto operator==(ColoredRect const & rhs) const noexcept -> bool
     {
         return (rect.x == rhs.rect.x && rect.y == rhs.rect.y);
     }
-    [[maybe_unused]]
-    auto operator==(ColoredRect const & rhs) const noexcept -> bool
-    {
-        return (const_cast<ColoredRect &>(*this) == rhs);
-    }
 };
 // Define the operator== function outside the class
-struct particle
+struct Particle
 {
     Rectangle rect;
     b2BodyId  bodyID;
 };
-enum class GameState : std::uint8_t
+enum class GameState : u8
 {
     none = 0,
     win,
@@ -610,29 +585,36 @@ enum class GameState : std::uint8_t
 };
 struct Player
 {
-    std::bitset<9>    moves;
-    Color const       rectColor;
-    std::string const name;
-    int const         id;
+    std::bitset<9> moves;
+    Color const    rectColor;
+    str const      name;
+    i32 const      id;
 };
 
 // game glob vars
-constexpr unsigned int const fps {60};
-constexpr int const          row    = 3;
-constexpr int const          column = 3;
-int                          gHeight {};
-int                          gWidth {};
-Vector2                      mousePos {};
-bool                         canRegister = false;
-bool                         canReset    = false;
-GameState                    currentState {GameState::none};
-unsigned int                 inputFramCounter {};
-Vector2                      uIPointAnimationWin {};
-unsigned int                 winUIFramCounter {};
+i32                    gHeight {0};
+i32                    gWidth {0};
+u32                    winUIFramCounter {};
+u32                    inputFramCounter {0};
+bool                   canRegister {false};
+bool                   canReset {false};
+Vector2                uIPointAnimationWin {0.f, 0.f};
+Vector2                mousePos {0.f, 0.f};
+GameState              currentState {GameState::none};
+RA_Util::GRandom const gRandom(0.f, 1400.f);
+constexpr u16 const    fps {60};
+constexpr u8 const     row    = 3;
+constexpr u8 const     column = 3;
+// clang-format off
 // win condition should check this table to state the winner
-inline static constexpr std::array<std::bitset<9>, 8> const
-    winTable {0x007, 0x038, 0x049, 0x054, 0x092, 0x111, 0x124, 0x1c0};
-RA_Util::GRandom const gRandom(0.f, 1400);
+inline static constexpr std::array<std::bitset<9>, 8> const winTable 
+{
+    0x007, 0x038,
+    0x049, 0x054,
+    0x092, 0x111, 
+    0x124, 0x1c0
+};
+// clang-format on
 
 
 namespace RA_Particle
@@ -648,7 +630,7 @@ b2WorldId initWorldOfBox2d()
     worldDef.enableSleep  = true;
     return worldID;
 }
-b2BodyId creatDynamicBody(particle & pr, b2WorldId const & worldID)
+b2BodyId creatDynamicBody(Particle & pr, b2WorldId const & worldID)
 {
     // Create a dynamic box (box2d-related)
     b2BodyDef boxDef          = {b2DefaultBodyDef()};
@@ -670,41 +652,37 @@ b2BodyId creatDynamicBody(particle & pr, b2WorldId const & worldID)
 }
 
 [[maybe_unused]]
-auto impulseParticles(std::vector<particle> const & particles) noexcept
-    -> void
+auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
 {
-    std::uint8_t i {};
+    u8 i {};
     for (auto const pr : particles)
     {
-        float force = 0.f;
+        f32 force = 0.f;
         if (i < (particles.size() / 2))
             force = -500;
         else
             force = 500;
         b2Body_Enable(pr.bodyID);
         b2Body_ApplyForceToCenter(pr.bodyID,
-                                  b2Vec2 {.x = force * gRandom.GetRandom(),
-                                          .y = force * gRandom.GetRandom()},
+                                  b2Vec2 {.x = force * gRandom.getRandom(),
+                                          .y = force * gRandom.getRandom()},
                                   true);
-        b2Body_ApplyTorque(pr.bodyID, force * gRandom.GetRandom(), true);
+        b2Body_ApplyTorque(pr.bodyID, force * gRandom.getRandom(), true);
         i++;
     }
 }
 
 [[maybe_unused]]
-auto drawParticles(std::vector<particle> const & particles,
-                   Color const color) noexcept -> void
+auto drawParticles(std::vector<Particle> const & particles, Color const color) noexcept
+    -> void
 {
     for (auto const pr : particles)
     {
-        if (b2Body_GetPosition(pr.bodyID).y * -1 >
-                static_cast<float>(gHeight) ||
-            b2Body_GetPosition(pr.bodyID).x * -1 >
-                static_cast<float>(gWidth) ||
+        if (b2Body_GetPosition(pr.bodyID).y * -1 > cast(f32, gHeight) ||
+            b2Body_GetPosition(pr.bodyID).x * -1 > cast(f32, gWidth) ||
             b2Body_GetPosition(pr.bodyID).x * -1 < 20.f)
         {
             b2Body_Disable(pr.bodyID);
-            continue;
         }
         else
         {
@@ -717,27 +695,28 @@ auto drawParticles(std::vector<particle> const & particles,
                                         .height = pr.rect.height},
                              Vector2 {.x = (pr.rect.width / 2.f),
                                       .y = (pr.rect.height / 2.f)},
-                             b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) *
-                                 RAD2DEG,
+                             b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) * RAD2DEG,
                              color);
             // }
         }
     }
 }
 [[maybe_unused]]
-auto resetParticles(std::vector<particle> const & particles) noexcept
-    -> void
+auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
 {
     for (auto const pr : particles)
     {
         b2Body_SetTransform(pr.bodyID,
-                            b2Vec2 {.x = -1.f * gRandom.GetRandom(),
-                                    .y = static_cast<float>(gHeight - 200)},
+                            b2Vec2 {.x = -1.f * gRandom.getRandom(),
+                                    .y = cast(f32, gHeight - 200)},
                             b2MakeRot(0.f));
         b2Body_Disable(pr.bodyID);
     }
 }
 }  // namespace RA_Particle
+
+}  // namespace
+
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
 
@@ -750,40 +729,40 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // auto const fps    = GetMonitorRefreshRate(0);
     SetTargetFPS(fps);
 
-    // font loading
+    // clang-format off
 
+    // font loading
     auto const font = LoadFont(
         RA_Global::pathToFile("NotoSans-VariableFont_wdth,wght.ttf"sv,
-                              RA_Global::EFileType::Font)
-            .c_str());
+        RA_Global::EFileType::Font).c_str());
 
+    // clang-format on
 
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
-    b2WorldId const        worldID = RA_Particle::initWorldOfBox2d();
-    constexpr float const  timeStep {1.f / 30.f};  // 30HZ
-    constexpr int8_t const subStepCount {3};
-    std::vector<particle>  particles {};
+    b2WorldId const       worldID = RA_Particle::initWorldOfBox2d();
+    constexpr f32 const   timeStep {1.f / 30.f};  // 30HZ
+    constexpr u8 const    subStepCount {3};
+    std::vector<Particle> particles {};
     particles.reserve(1000);
     // create dynamic bodies
     for (size_t i {}; i < 1000; ++i)
     {
-        particle pr {};
-        pr.rect.x      = gRandom.GetRandom();
-        pr.rect.y      = static_cast<float>((gHeight - 200) * -1);
+        Particle pr {};
+        pr.rect.x      = gRandom.getRandom();
+        pr.rect.y      = cast(f32, (gHeight - 200) * -1);
         pr.rect.height = 15;
         pr.rect.width  = 15;
         pr.bodyID      = RA_Particle::creatDynamicBody(pr, worldID);
         particles.emplace_back(pr);
     }
 
-    auto const gridRect = RA_Util::
-        placeRelativeCenter(Rectangle {0.f,
-                                       0.f,
-                                       static_cast<float>(gWidth),
-                                       static_cast<float>(gHeight)},
-                            50,
-                            80);
+    auto const gridRect = RA_Util::placeRelativeCenter(Rectangle {0.f,
+                                                                  0.f,
+                                                                  cast(f32, gWidth),
+                                                                  cast(f32, gHeight)},
+                                                       50,
+                                                       80);
 
     auto const gridinfo = RA_Util::createGridInfo(gridRect, column, row);
 
@@ -794,12 +773,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     gridTextureinfo.rect.y = 0.f;
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridTextureinfo, 5, WHITE, RA_Global::Grey)};
+        RA_Util::genGridTexture(gridTextureinfo, 5, WHITE, RA_Global::grey)};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
     // indexes of rects that caus win
-    std::array<int, 3> indexCausWin {};
+    std::array<u8, 3> indexCausWin {};
 
     Camera2D const camera {.offset   = Vector2 {},
                            .target   = Vector2 {},
@@ -840,8 +819,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     canRegister = true;
                 }
                 // ui hit detection
-                if (CheckCollisionPointRec(mousePos, resetBtn) &&
-                    canRegister)
+                if (CheckCollisionPointRec(mousePos, resetBtn) && canRegister)
                 {
                     canReset = true;
                 }
@@ -863,14 +841,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     // if player touch inside grid
                     if (filteredRect.has_value())
                     {
-                        auto const [currentRect,
-                                    indexRect] = filteredRect.value();
+                        auto const [currentRect, indexRect] = filteredRect.value();
                         // create new rect inside the rect that touched with player color
                         ColoredRect newRect {};
                         // new rect should adjust size and coordinate inside the parent (touched rect)
-                        newRect.rect = RA_Util::placeRelativeCenter(currentRect,
-                                                                    55,
-                                                                    55);
+                        newRect.rect = RA_Util::placeRelativeCenter(currentRect, 55, 55);
                         // adjust color based on current player
                         newRect.color = currentPlayer->rectColor;
                         // if this new rect does not exist in buffer add it to buffer
@@ -888,8 +863,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                             for (auto const n : winTable)
                             {
                                 std::size_t counter {};
-                                for (size_t i = 0;
-                                     i < currentPlayer->moves.size();
+                                for (size_t i = 0; i < currentPlayer->moves.size();
                                      ++i)
                                 {
                                     // if both bit are 1
@@ -897,8 +871,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                     {
                                         // add this index it to index
                                         // buffer for win animation and drawing stuff
-                                        indexCausWin[counter] = static_cast<int>(
-                                            i + 1);
+                                        indexCausWin[counter] = cast(u8, i + 1);
                                         counter++;
                                     }
                                 }
@@ -932,8 +905,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     wonPlayer = currentPlayer;
                     // index of rectangle to center point on that rectangle
                     uIPointAnimationWin = {
-                        RA_Util::index2PointOnGrid(indexCausWin[2],
-                                                   gridinfo)};
+                        RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
                     RA_Particle::impulseParticles(particles);
                 }
                 // update tie state
@@ -965,26 +937,26 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // draw game loop
         {
-            ClearBackground(RA_Global::Grey);
+            ClearBackground(RA_Global::grey);
             BeginDrawing();
             BeginMode2D(camera);
 
             DrawTexture(gridTexture,
-                        static_cast<int>(gridinfo.rect.x),
-                        static_cast<int>(gridinfo.rect.y),
+                        cast(i32, gridinfo.rect.x),
+                        cast(i32, gridinfo.rect.y),
                         WHITE);
             // UI
             {
                 DrawTextEx(font,
                            TextFormat("resulation : %d x %d", gWidth, gHeight),
                            Vector2 {50.f, 10.f},
-                           (float)font.baseSize,
+                           cast(f32, font.baseSize),
                            2,
                            WHITE);
                 DrawTextEx(font,
                            TextFormat("FPS: %d", GetFPS()),
                            Vector2 {50.f, 40.f},
-                           (float)font.baseSize,
+                           cast(f32, font.baseSize),
                            2,
                            WHITE);
 
@@ -993,9 +965,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 DrawTextEx(font,
                            "Reset",
                            Vector2 {resetBtn.x + (resetBtn.width / 2.f) - 31,
-                                    resetBtn.y +
-                                        (resetBtn.height / 2.f) - 11},
-                           (float)font.baseSize,
+                                    resetBtn.y + (resetBtn.height / 2.f) - 11},
+                           cast(f32, font.baseSize),
                            2,
                            WHITE);
                 // reset btn
@@ -1015,7 +986,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     DrawTextEx(font,
                                "Turn",
                                Vector2 {70.f, 350.f},
-                               (float)font.baseSize,
+                               cast(f32, font.baseSize),
                                2,
                                currentPlayer->rectColor);
                     break;
@@ -1024,36 +995,31 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     winUIFramCounter++;
                     DrawTextEx(font,
-                               std::string {wonPlayer->name + " Won"s}.c_str(),
-                               Vector2 {static_cast<float>(
-                                            gWidth / 2.f - 200.f),
-                                        5.f},
-                               (float)font.baseSize * 2,
+                               str {wonPlayer->name + " Won"s}.c_str(),
+                               Vector2 {cast(f32, (gWidth / 2.f) - 200.f), 5.f},
+                               cast(f32, font.baseSize * 2),
                                2,
                                wonPlayer->rectColor);
 
                     // animation of wining
                     auto const v {
-                        RA_Util::index2PointOnGrid(indexCausWin[0],
-                                                   gridinfo)};
+                        RA_Util::index2PointOnGrid(indexCausWin[0], gridinfo)};
                     auto const v1 {
-                        RA_Util::index2PointOnGrid(indexCausWin[1],
-                                                   gridinfo)};
+                        RA_Util::index2PointOnGrid(indexCausWin[1], gridinfo)};
                     auto const v2 {
-                        RA_Util::index2PointOnGrid(indexCausWin[2],
-                                                   gridinfo)};
+                        RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
                     constexpr Color const col = WHITE;
                     if (winUIFramCounter >= 10)
                     {
-                        DrawCircle(v.x, v.y, 25.f, col);
+                        DrawCircle(cast(i32, v.x), cast(i32, v.y), 25.f, col);
                     }
                     if (winUIFramCounter >= 20)
                     {
-                        DrawCircle(v1.x, v1.y, 25.f, col);
+                        DrawCircle(cast(i32, v1.x), cast(i32, v1.y), 25.f, col);
                     }
                     if (winUIFramCounter >= 30)
                     {
-                        DrawCircle(v2.x, v2.y, 25.f, col);
+                        DrawCircle(cast(i32, v2.x), cast(i32, v2.y), 25.f, col);
                     }
                     if (winUIFramCounter >= 40)
                     {
@@ -1062,8 +1028,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     }
                     if (winUIFramCounter >= 45)
                     {
-                        RA_Particle::drawParticles(particles,
-                                                   wonPlayer->rectColor);
+                        RA_Particle::drawParticles(particles, wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 700)
                     {
@@ -1075,10 +1040,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     DrawTextEx(font,
                                "Tie",
-                               Vector2 {static_cast<float>(
-                                            gWidth / 2.f - 100.f),
-                                        5.f},
-                               (float)font.baseSize,
+                               Vector2 {cast(f32, (gWidth / 2.f) - 100.f), 5.f},
+                               cast(f32, font.baseSize),
                                2.f,
                                WHITE);
 

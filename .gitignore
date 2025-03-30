@@ -17,6 +17,7 @@ thirdParty/*
 *.slo
 *.lo
 *.o
+*.c.obj
 *.obj
 
 # Precompiled Headers
