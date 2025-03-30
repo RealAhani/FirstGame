@@ -620,8 +620,8 @@ inline static constexpr std::array<std::bitset<9>, 8> const winTable
 namespace RA_Particle
 {
 
-
-b2WorldId initWorldOfBox2d()
+[[nodiscard]] [[maybe_unused]]
+auto initWorldOfBox2d() noexcept -> b2WorldId
 {
     b2WorldDef   worldDef = {b2DefaultWorldDef()};
     b2Vec2 const gravity  = {0.f, -10.f};
@@ -630,7 +630,10 @@ b2WorldId initWorldOfBox2d()
     worldDef.enableSleep  = true;
     return worldID;
 }
-b2BodyId creatDynamicBody(Particle & pr, b2WorldId const & worldID)
+
+[[nodiscard]] [[maybe_unused]]
+auto creatDynamicBody(Particle const & pr, b2WorldId const & worldID) noexcept
+    -> b2BodyId
 {
     // Create a dynamic box (box2d-related)
     b2BodyDef boxDef          = {b2DefaultBodyDef()};
