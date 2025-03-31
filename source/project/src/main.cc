@@ -145,10 +145,10 @@ auto placeRelativeCenter(Rectangle const & parentInfo,
  */
 [[nodiscard]] [[maybe_unused]]
 auto placeRelative(Rectangle const & parentInfo,
-                   uint8_t const     xPercentOffset,
-                   uint8_t const     yPercentOffset,
-                   uint8_t const     wPercentReminded,
-                   uint8_t const     hPercentReminded) noexcept -> Rectangle
+                   u8 const          xPercentOffset,
+                   u8 const          yPercentOffset,
+                   u8 const          wPercentReminded,
+                   u8 const          hPercentReminded) noexcept -> Rectangle
 {
     // width and height percent reminded checking
     checkAtRuntime((wPercentReminded == 0 || hPercentReminded == 0),
@@ -184,8 +184,8 @@ struct GridInfo
 {
     Rectangle rect;
     Vector2   cellSize;
-    uint8_t   columnCount;
-    uint8_t   rowCount;
+    u8        columnCount;
+    u8        rowCount;
 };
 
 /*
@@ -195,8 +195,8 @@ struct GridInfo
  */
 [[nodiscard]] [[maybe_unused]]
 inline auto createGridInfo(Rectangle const & gridRect,
-                           uint8_t const     columnCount = 2,
-                           uint8_t const     rowCount = 2) noexcept -> GridInfo
+                           u8 const          columnCount = 2,
+                           u8 const          rowCount = 2) noexcept -> GridInfo
 {
     // col and row should be bigger than 2X2
     // bounds checking on input args (debug only)
@@ -221,7 +221,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
     // draw in between lines based on col and row
     // drawing row lines
     f32 yOffset {grid.rect.y};
-    for (unsigned int i {}; i <= grid.rowCount; ++i)
+    for (u16 i {}; i <= grid.rowCount; ++i)
     {
         DrawLineV(Vector2 {grid.rect.x, yOffset},
                   Vector2 {grid.rect.width + grid.rect.x, yOffset},
@@ -230,7 +230,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
     }
     // drawing column lines
     f32 xOffset {grid.rect.x};
-    for (unsigned int i {}; i <= grid.columnCount; ++i)
+    for (u16 i {}; i <= grid.columnCount; ++i)
     {
         DrawLineV(Vector2 {xOffset, grid.rect.y},
                   Vector2 {xOffset, grid.rect.height + grid.rect.y},
@@ -246,7 +246,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
 */
 [[nodiscard]] [[maybe_unused]]
 auto genGridTexture(GridInfo const & grid,
-                    int const        lineThickness = 10,
+                    i32 const        lineThickness = 10,
                     Color const      lineColor     = WHITE,
                     Color const backgroundColor = BLACK) noexcept -> Texture2D
 {
@@ -256,7 +256,7 @@ auto genGridTexture(GridInfo const & grid,
     // draw in between lines based on col and row
     // drawing row lines
     f32 yOffset {grid.rect.y};
-    for (unsigned int i {}; i <= grid.rowCount; ++i)
+    for (u16 i {}; i <= grid.rowCount; ++i)
     {
         Vector2 const v0 {grid.rect.x, yOffset};
         Vector2 const v1 {grid.rect.width + grid.rect.x, yOffset};
@@ -265,7 +265,7 @@ auto genGridTexture(GridInfo const & grid,
     }
     // draw
     f32 xOffset {grid.rect.x};
-    for (unsigned int i {}; i <= grid.columnCount; ++i)
+    for (u16 i {}; i <= grid.columnCount; ++i)
     {
         Vector2 const v0 {xOffset, grid.rect.y};
         Vector2 const v1 {xOffset, grid.rect.height + grid.rect.y};
@@ -430,9 +430,9 @@ struct AnimData
 
 [[nodiscard]] [[maybe_unused]]
 auto initAnim(str_v const fileName,
-              int const   animLenght,
-              int const   speed,
-              int const   speedMax) -> AnimData
+              i32 const   animLenght,
+              i32 const   speed,
+              i32 const   speedMax) -> AnimData
 {
     // str path;
     // path.reserve(RA_Global::texturePath.size() + fileName.size());
@@ -655,7 +655,7 @@ auto creatDynamicBody(Particle const & pr, b2WorldId const & worldID) noexcept
 [[maybe_unused]]
 auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
 {
-    u8 i {};
+    u16 i {};
     for (auto const pr : particles)
     {
         f32 force = 0.f;
@@ -770,7 +770,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // center the texture of grid
     // we need gridinfo to be untouched for draw texture later
     auto gridTextureinfo   = gridinfo;
-    gridTextureinfo.rect.x = 0.f;
+    gridTextureinfo.rect.x = -1.f;
     gridTextureinfo.rect.y = 0.f;
 
     Texture2D const gridTexture {
