@@ -279,25 +279,26 @@ auto genGridTexture(GridInfo const & grid,
 
 /*
  * @Goal: check input-hit-position does inside the grid if so map it
- * to a sub-rectangle to that hit-pos based on grid-info and return that Cell
+ * to a sub-rectangle to that hit-pos based on grid-info and return that Cell as
+ * a new rectangle (pos of new rect start from top-left)
+ *
  * @Note: check the return velue before use it (nullopt)
  * @Warning: this function on his core does heavily depend on rounding integers
 
  * @Return: selected rectangle and index of it in grid(indexing start from
  bottom-right and go to left)
- * e.g for 3*3 grid:
+ * e.g for 3*3 grid index is:
  * 987
  * 654
  * 321
  */
 [[nodiscard]] [[maybe_unused]]
-auto mapTouchToGridCell(GridInfo const & grid,
-                        Vector2 const &  hitPos,
-                        bool const       debugDraw = false) noexcept
-    -> std::optional<std::pair<Rectangle const, std::size_t const>>
+auto mapHitToGridCell(GridInfo const & grid, Vector2 const & hitPos) noexcept
+    -> std::optional<std::pair<Rectangle const, u8 const>>
 {
     // sanity check for devide by zero
-    checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f),
+    checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f ||
+                    grid.columnCount == 0 || grid.rowCount == 0),
                    "grid cell size should not be zero"sv);
 
     // does hit is inside the grid
@@ -305,45 +306,35 @@ auto mapTouchToGridCell(GridInfo const & grid,
         hitPos.y < grid.rect.y || (hitPos.y - grid.rect.y) > grid.rect.height)
         return std::nullopt;
 
-    auto const tempRemX = cast(std::size_t,
-                               (hitPos.x - grid.rect.x) / grid.cellSize.x);
-
-    auto x1 = static_cast<std::size_t>((tempRemX * grid.cellSize.x) + grid.rect.x);
-
+    auto const tempRemX = cast(u8, (hitPos.x - grid.rect.x) / grid.cellSize.x);
+    auto       x1       = cast(u16, (tempRemX * grid.cellSize.x) + grid.rect.x);
     if (tempRemX == 0)
-        x1 = static_cast<std::size_t>(grid.rect.x);
+        x1 = cast(u16, grid.rect.x);
     else if (tempRemX >= grid.columnCount)
-        x1 = static_cast<std::size_t>(
-            ((grid.columnCount - 1) * grid.cellSize.x) + grid.rect.x);
+        x1 = cast(u16, ((grid.columnCount - 1) * grid.cellSize.x) + grid.rect.x);
 
-    auto const tempRemY = static_cast<std::size_t>(
-        (hitPos.y - grid.rect.y) / grid.cellSize.y);
-
-    auto y1 = static_cast<std::size_t>((tempRemY * grid.cellSize.y) + grid.rect.y);
+    auto const tempRemY = cast(u8, (hitPos.y - grid.rect.y) / grid.cellSize.y);
+    auto       y1       = cast(u16, (tempRemY * grid.cellSize.y) + grid.rect.y);
     if (tempRemY == 0)
-        y1 = static_cast<std::size_t>(grid.rect.y);
-
+        y1 = cast(u16, grid.rect.y);
     else if (tempRemY >= grid.rowCount)
-        y1 = static_cast<std::size_t>(
-            ((grid.rowCount - 1) * grid.cellSize.y) + grid.rect.y);
+        y1 = cast(u16, ((grid.rowCount - 1) * grid.cellSize.y) + grid.rect.y);
 
-#ifdef DEBUG
-    if (debugDraw)
-    {
-        DrawRectangleRec(Rectangle {x1 / 1.f,
-                                    y1 / 1.f,
-                                    grid.cellSize.x,
-                                    grid.cellSize.y},
-                         RAYWHITE);
-        DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f}, 10, RED);
-        DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f,
-                                  (y1 + grid.cellSize.y) / 1.f},
-                         10,
-                         RED);
-        DrawCircleLinesV(hitPos, 5, YELLOW);
-    }
+// debuge draw
+#if 0
+    DrawRectangleRec(Rectangle {x1 / 1.f,
+                                y1 / 1.f,
+                                grid.cellSize.x,
+                                grid.cellSize.y},
+                     RAYWHITE);
+    DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
+    DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f}, 10, RED);
+    DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f}, 10, RED);
+    DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f,
+                              (y1 + grid.cellSize.y) / 1.f},
+                     10,
+                     RED);
+    DrawCircleLinesV(hitPos, 5, YELLOW);
 #endif  // DEBUG
 
     // row* column = indexes
@@ -351,17 +342,24 @@ auto mapTouchToGridCell(GridInfo const & grid,
     // 9 8 7
     // 6 5 4
     // 3 2 1
-    auto const totalLength {
-        static_cast<std::size_t>(grid.columnCount * grid.rowCount)};
+    u8 const totalLength {cast(u8, grid.columnCount * grid.rowCount)};
 
-    auto const currentIndex {
-        totalLength - ((tempRemX) + (tempRemY * grid.columnCount))};
+    u8 const currentIndex {
+        cast(u8, (totalLength - ((tempRemX) + (tempRemY * grid.columnCount))))};
 
-    return std::pair {Rectangle {x1 / 1.f,
-                                 y1 / 1.f,
-                                 grid.cellSize.x,
-                                 grid.cellSize.y},
-                      currentIndex};
+    // clang-format off
+    return std::pair
+    {
+        Rectangle 
+        {
+            cast(f32, x1),
+            cast(f32, y1),
+            grid.cellSize.x,
+            grid.cellSize.y
+        },
+        currentIndex
+    };
+    // clang-format on
 }
 /*
  * @Warning: this function just work with 3*3 grid
@@ -749,7 +747,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     std::vector<Particle> particles {};
     particles.reserve(1000);
     // create dynamic bodies
-    for (size_t i {}; i < 1000; ++i)
+    for (u16 i {}; i < 1000; ++i)
     {
         Particle pr {};
         pr.rect.x      = gRandom.getRandom();
@@ -840,7 +838,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     // what is the sub-rectangle on the grid + index of that rectangle in optional type
                     auto const filteredRect {
-                        RA_Util::mapTouchToGridCell(gridinfo, mousePos)};
+                        RA_Util::mapHitToGridCell(gridinfo, mousePos)};
                     // if player touch inside grid
                     if (filteredRect.has_value())
                     {
@@ -865,9 +863,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                             // check for win condition on LookUpTable bitsets => bit by bit
                             for (auto const n : winTable)
                             {
-                                std::size_t counter {};
-                                for (size_t i = 0; i < currentPlayer->moves.size();
-                                     ++i)
+                                u8 counter {};
+                                for (u32 i = 0; i < currentPlayer->moves.size(); ++i)
                                 {
                                     // if both bit are 1
                                     if (currentPlayer->moves[i] && n[i])
@@ -924,18 +921,17 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             // reset button clicked
             if (canReset)
             {
-                currentState  = GameState::none;
-                p1.moves      = {};
-                p2.moves      = {};
-                currentPlayer = &p1;
-                wonPlayer     = nullptr;
+                currentState = GameState::none;
+                p1.moves.reset();
+                p2.moves.reset();
                 rects.clear();
                 indexCausWin.fill(0);
+                RA_Particle::resetParticles(particles);
+                currentPlayer       = &p1;
+                wonPlayer           = nullptr;
                 canReset            = false;
                 winUIFramCounter    = 0;
                 uIPointAnimationWin = {};
-                // reset particles trandform
-                RA_Particle::resetParticles(particles);
             }
         }
         // draw game loop
