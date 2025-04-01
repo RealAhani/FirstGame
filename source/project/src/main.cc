@@ -278,101 +278,84 @@ auto genGridTexture(GridInfo const & grid,
 }
 
 /*
- * @Goal: check input-hit-position does inside the grid if so map it
- * to a sub-rectangle to that hit-pos based on grid-info and return that Cell as
- * a new rectangle (pos of new rect start from top-left)
- *
- * @Note: check the return velue before use it (nullopt)
- * @Warning: this function on his core does heavily depend on rounding integers
-
- * @Return: selected rectangle and index of it in grid(indexing start from
- bottom-right and go to left)
- * e.g for 3*3 grid index is:
- * 987
- * 654
- * 321
+ * @Goat: return the grid-cell(Rectangle) based on input point if is inside the grid
  */
 [[nodiscard]] [[maybe_unused]]
-auto mapHitToGridCell(GridInfo const & grid, Vector2 const & hitPos) noexcept
-    -> std::optional<std::pair<Rectangle const, u8 const>>
+auto point2RectOnGrid(Vector2 const & point, GridInfo const & grid) noexcept
+    -> std::optional<Rectangle>
 {
-    // sanity check for devide by zero
+    // sanity check
     checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f ||
                     grid.columnCount == 0 || grid.rowCount == 0),
-                   "grid cell size should not be zero"sv);
+                   "grid cell size or Row/Col count should not be zero"sv);
+    checkAtRuntime((point.x < 0.f || point.y < 0.f),
+                   "point should not have negative value"sv);
 
-    // does hit is inside the grid
-    if (hitPos.x < grid.rect.x || (hitPos.x - grid.rect.x) > grid.rect.width ||
-        hitPos.y < grid.rect.y || (hitPos.y - grid.rect.y) > grid.rect.height)
+    // does this point is inside the grid
+    if (point.x < grid.rect.x || (point.x - grid.rect.x) > grid.rect.width ||
+        point.y < grid.rect.y || (point.y - grid.rect.y) > grid.rect.height)
         return std::nullopt;
 
-    auto const tempRemX = cast(u8, (hitPos.x - grid.rect.x) / grid.cellSize.x);
-    auto       x1       = cast(u16, (tempRemX * grid.cellSize.x) + grid.rect.x);
-    if (tempRemX == 0)
+    auto const tempReminderX = cast(u8, (point.x - grid.rect.x) / grid.cellSize.x);
+    auto x1 = cast(u16, (tempReminderX * grid.cellSize.x) + grid.rect.x);
+
+    if (tempReminderX == 0)
         x1 = cast(u16, grid.rect.x);
-    else if (tempRemX >= grid.columnCount)
+    else if (tempReminderX >= grid.columnCount)
         x1 = cast(u16, ((grid.columnCount - 1) * grid.cellSize.x) + grid.rect.x);
 
-    auto const tempRemY = cast(u8, (hitPos.y - grid.rect.y) / grid.cellSize.y);
-    auto       y1       = cast(u16, (tempRemY * grid.cellSize.y) + grid.rect.y);
-    if (tempRemY == 0)
+    auto const tempReminderY = cast(u8, (point.y - grid.rect.y) / grid.cellSize.y);
+    auto y1 = cast(u16, (tempReminderY * grid.cellSize.y) + grid.rect.y);
+    if (tempReminderY == 0)
         y1 = cast(u16, grid.rect.y);
-    else if (tempRemY >= grid.rowCount)
+    else if (tempReminderY >= grid.rowCount)
         y1 = cast(u16, ((grid.rowCount - 1) * grid.cellSize.y) + grid.rect.y);
-
-// debuge draw
-#if 0
-    DrawRectangleRec(Rectangle {x1 / 1.f,
-                                y1 / 1.f,
-                                grid.cellSize.x,
-                                grid.cellSize.y},
-                     RAYWHITE);
-    DrawCircleLinesV(Vector2 {x1 / 1.f, y1 / 1.f}, 10, RED);
-    DrawCircleLinesV(Vector2 {x1 / 1.f, (y1 + grid.cellSize.y) / 1.f}, 10, RED);
-    DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f, y1 / 1.f}, 10, RED);
-    DrawCircleLinesV(Vector2 {(x1 + grid.cellSize.x) / 1.f,
-                              (y1 + grid.cellSize.y) / 1.f},
-                     10,
-                     RED);
-    DrawCircleLinesV(hitPos, 5, YELLOW);
-#endif  // DEBUG
-
-    // row* column = indexes
-    // 3*3=9 is total indexes
-    // 9 8 7
-    // 6 5 4
-    // 3 2 1
-    u8 const totalLength {cast(u8, grid.columnCount * grid.rowCount)};
-
-    u8 const currentIndex {
-        cast(u8, (totalLength - ((tempRemX) + (tempRemY * grid.columnCount))))};
-
-    // clang-format off
-    return std::pair
-    {
-        Rectangle 
-        {
-            cast(f32, x1),
-            cast(f32, y1),
-            grid.cellSize.x,
-            grid.cellSize.y
-        },
-        currentIndex
-    };
-    // clang-format on
+    return Rectangle {cast(f32, x1),
+                      cast(f32, y1),
+                      grid.cellSize.x,
+                      grid.cellSize.y};
 }
+
 /*
- * @Warning: this function just work with 3*3 grid
- * @Note : passed index should start from 1 to 3
- * @Goal: get and index of a rectangle on the grid and return center
- * point of that rectangle point of that rectangle
- * // TODO: reowrk to work with other dimensions
+ * @Goat: return the index of grid cell based on the input point
+ * @Warning:index should be checked by caller and should not be ZERO
  */
-[[maybe_unused]] [[nodiscard]]
-auto index2PointOnGrid(u8 index, GridInfo const & grid) noexcept -> Vector2
+[[nodiscard]] [[maybe_unused]]
+auto point2IndexOnGrid(Vector2 const & point, GridInfo const & grid) noexcept -> u16
 {
+    // sanity check
+    checkAtRuntime((grid.cellSize.x == 0.f || grid.cellSize.y == 0.f ||
+                    grid.columnCount == 0 || grid.rowCount == 0),
+                   "grid cell size or Row/Col count should not be zero"sv);
+    checkAtRuntime((point.x < 0.f || point.y < 0.f),
+                   "input point should not have negative value"sv);
+
+    // does this point is inside the grid
+    if (point.x < grid.rect.x || (point.x - grid.rect.x) > grid.rect.width ||
+        point.y < grid.rect.y || (point.y - grid.rect.y) > grid.rect.height)
+        return 0;
+
+    auto const tempReminderX = cast(u16, (point.x - grid.rect.x) / grid.cellSize.x);
+    auto const tempReminderY = cast(u16, (point.y - grid.rect.y) / grid.cellSize.y);
+    u16 const totalLength {cast(u16, grid.columnCount * grid.rowCount)};
+
+    return cast(u16,
+                (totalLength -
+                 ((tempReminderX) + (tempReminderY * grid.columnCount))));
+}
+
+/*
+ * @Goat: return the top-left corner point of the Rectangle(grid cell) inside
+ * the grid based on input index(the output Point cordinate start from zero)
+ * @Warning: index does start from 1 and should not be Zero
+ * // TODO: this function just work with static col/row number 3*3
+ */
+[[nodiscard]] [[maybe_unused]]
+auto index2PointOnGrid(u16 const index, GridInfo const & grid) noexcept -> Vector2
+{
+    checkAtRuntime((index == 0), "index should start from ONE not Zero"sv);
     checkAtRuntime((index > (grid.columnCount * grid.rowCount)),
-                   "index is not correct e.g:(1 to 9)"sv);
+                   "index is not correct e.g:(1 to row*col)"sv);
 
     i32 const ix = (index % grid.columnCount == 0)
                        ? 0
@@ -384,16 +367,42 @@ auto index2PointOnGrid(u8 index, GridInfo const & grid) noexcept -> Vector2
                                ? 1
                                : grid.rowCount - 1));
 
-    i32 const x = cast(i32,
-                       grid.rect.x + (cast(f32, ix) * grid.cellSize.x) +
-                           (grid.cellSize.x / 2.f));
+    i32 const x = cast(i32, grid.rect.x + (cast(f32, ix) * grid.cellSize.x));
 
-    i32 const y = cast(i32,
-                       grid.rect.y + (cast(f32, iy) * grid.cellSize.y) +
-                           (grid.cellSize.y / 2.f));
+    i32 const y = cast(i32, grid.rect.y + (cast(f32, iy) * grid.cellSize.y));
 
     return {cast(f32, x), cast(f32, y)};
 }
+
+/*
+ * @Goat: return the center of the Rectangle(grid cell) inside the grid based on input index
+ * @Warning: index does start from 1 and should not be Zero
+ */
+[[nodiscard]] [[maybe_unused]]
+auto index2CenterPointOnGrid(u16 const index, GridInfo const & grid) noexcept
+    -> Vector2
+{
+    auto temp = index2PointOnGrid(index, grid);
+    return Vector2 {temp.x + (grid.cellSize.x / 2.f),
+                    temp.y + (grid.cellSize.y / 2.f)};
+}
+
+/*
+ * @Goat: return the Rectangle(grid cell) inside the grid based on input index
+ * @Warning: index does start from 1 and should not be Zero
+ */
+[[nodiscard]] [[maybe_unused]]
+auto index2RectOnGrid(u16 const index, GridInfo const & grid) noexcept -> Rectangle
+{
+    auto const point = index2PointOnGrid(index, grid);
+    return Rectangle {.x      = point.x,
+                      .y      = point.y,
+                      .width  = grid.cellSize.x,
+                      .height = grid.cellSize.y
+
+    };
+}
+
 [[maybe_unused]]
 auto moveTowards(Vector2 & p1, Vector2 const & p2, f32 step) noexcept -> void
 {
@@ -581,13 +590,6 @@ enum class GameState : u8
     tie,
     end
 };
-struct Player
-{
-    std::bitset<9> moves;
-    Color const    rectColor;
-    str const      name;
-    i32 const      id;
-};
 
 // game glob vars
 i32                    gHeight {0};
@@ -603,9 +605,16 @@ RA_Util::GRandom const gRandom(0.f, 1400.f);
 constexpr u16 const    fps {60};
 constexpr u8 const     row    = 3;
 constexpr u8 const     column = 3;
+struct Player
+{
+    std::bitset<row * column> moves;
+    Color const               rectColor;
+    str const                 name;
+    i32 const                 id;
+};
 // clang-format off
 // win condition should check this table to state the winner
-inline static constexpr std::array<std::bitset<9>, 8> const winTable 
+inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
 {
     0x007, 0x038,
     0x049, 0x054,
@@ -837,16 +846,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 if (canRegister)
                 {
                     // what is the sub-rectangle on the grid + index of that rectangle in optional type
-                    auto const filteredRect {
-                        RA_Util::mapHitToGridCell(gridinfo, mousePos)};
+                    auto const selectedRect {
+                        RA_Util::point2RectOnGrid(mousePos, gridinfo)};
                     // if player touch inside grid
-                    if (filteredRect.has_value())
+                    if (selectedRect.has_value())
                     {
-                        auto const [currentRect, indexRect] = filteredRect.value();
+                        auto const indexRect = RA_Util::point2IndexOnGrid(mousePos,
+                                                                          gridinfo);
                         // create new rect inside the rect that touched with player color
                         ColoredRect newRect {};
                         // new rect should adjust size and coordinate inside the parent (touched rect)
-                        newRect.rect = RA_Util::placeRelativeCenter(currentRect, 55, 55);
+                        newRect.rect = RA_Util::placeRelativeCenter(selectedRect.value(),
+                                                                    55,
+                                                                    55);
                         // adjust color based on current player
                         newRect.color = currentPlayer->rectColor;
                         // if this new rect does not exist in buffer add it to buffer
@@ -904,8 +916,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     wonPlayer = currentPlayer;
                     // index of rectangle to center point on that rectangle
-                    uIPointAnimationWin = {
-                        RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
+                    uIPointAnimationWin = RA_Util::index2CenterPointOnGrid(indexCausWin[2],
+                                                                           gridinfo);
                     RA_Particle::impulseParticles(particles);
                 }
                 // update tie state
@@ -1002,11 +1014,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
                     // animation of wining
                     auto const v {
-                        RA_Util::index2PointOnGrid(indexCausWin[0], gridinfo)};
+                        RA_Util::index2CenterPointOnGrid(indexCausWin[0], gridinfo)};
                     auto const v1 {
-                        RA_Util::index2PointOnGrid(indexCausWin[1], gridinfo)};
+                        RA_Util::index2CenterPointOnGrid(indexCausWin[1], gridinfo)};
                     auto const v2 {
-                        RA_Util::index2PointOnGrid(indexCausWin[2], gridinfo)};
+                        RA_Util::index2CenterPointOnGrid(indexCausWin[2], gridinfo)};
                     constexpr Color const col = WHITE;
                     if (winUIFramCounter >= 10)
                     {
