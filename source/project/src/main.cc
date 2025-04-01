@@ -357,20 +357,54 @@ auto index2PointOnGrid(u16 const index, GridInfo const & grid) noexcept -> Vecto
     checkAtRuntime((index > (grid.columnCount * grid.rowCount)),
                    "index is not correct e.g:(1 to row*col)"sv);
 
-    i32 const ix = (index % grid.columnCount == 0)
-                       ? 0
-                       : (index % grid.columnCount > 1 ? 1 : grid.columnCount - 1);
+    i32        ix              = 0;
+    auto const inBetweenCountX = grid.columnCount - 2;
+    u16 const  offsetX         = ((grid.columnCount * grid.rowCount) - index) %
+                        grid.columnCount;
+    auto const endX           = grid.columnCount - 1;
+    u8         tempInBetweenX = (offsetX < inBetweenCountX)
+                                    ? cast(u8, inBetweenCountX - offsetX)
+                                    : 0;
+    for (u16 i = 0; i < grid.columnCount; i++)
+    {
+        if (offsetX == 0)  // start
+        {
+            ix = 0;
+            break;
+        }
+        if (offsetX == endX)  // end
+            ix = endX;
+        else if (i < (endX) && i > 0 && (tempInBetweenX < inBetweenCountX))  // middle
+        {
+            ix++;
+            tempInBetweenX++;
+        }
+    }
 
-    i32 const iy = (cast(f32, index) / cast(f32, grid.rowCount) > 2.f
-                        ? 0
-                        : (cast(f32, index) / cast(f32, grid.rowCount) > 1.f
-                               ? 1
-                               : grid.rowCount - 1));
-
+    i32        iy              = 0;
+    auto const inBetweenCountY = grid.rowCount - 2;
+    u16 const offsetY = ((grid.columnCount * grid.rowCount) - index) / grid.rowCount;
+    u8         tempInBetweenY = (offsetY < inBetweenCountY)
+                                    ? cast(u8, inBetweenCountY - offsetY)
+                                    : 0;
+    auto const endY           = grid.rowCount - 1;
+    for (u16 i = 0; i < grid.rowCount; i++)
+    {
+        if (offsetY == (0))  // start
+        {
+            iy = 0;
+            break;
+        }
+        if (offsetY == (endY))  // end
+            iy = endY;
+        else if (i < (endY) && i > 0 && (tempInBetweenY < inBetweenCountY))  // middle
+        {
+            iy++;
+            tempInBetweenY++;
+        }
+    }
     i32 const x = cast(i32, grid.rect.x + (cast(f32, ix) * grid.cellSize.x));
-
     i32 const y = cast(i32, grid.rect.y + (cast(f32, iy) * grid.cellSize.y));
-
     return {cast(f32, x), cast(f32, y)};
 }
 
@@ -556,6 +590,55 @@ auto updateAnim(AnimData & data) noexcept -> void
     }
 }
 
+template <std::size_t size>
+[[maybe_unused]]
+auto defineCircles(RA_Util::GridInfo const &    gridInfo,
+                   std::array<u8, size> const & indexesCausesWin)
+    -> std::array<Vector2, size>
+{
+    // i32                       temp {};
+    std::array<Vector2, size> circles;
+    for (size_t i = 0; i < indexesCausesWin.size(); ++i)
+    {
+        circles[i] = RA_Util::index2CenterPointOnGrid(indexesCausesWin[i], gridInfo);
+    }
+    return circles;
+}
+
+template <std::size_t size>
+[[maybe_unused]]
+auto drawAnimCircles(u32                               currentFrame,
+                     u32 &                             limitFrame,
+                     u8 &                              stateAnim,
+                     std::array<Vector2, size> const & circles,
+                     Color const                       color) -> void
+{
+    for (size_t i = 0; i < stateAnim; i++)
+    {
+        if (currentFrame == limitFrame)
+        {
+            limitFrame += 10;
+            stateAnim += 1;
+            break;
+        }
+        else
+        {
+            if (i < stateAnim)
+            {
+                DrawCircle(cast(i32, circles[i].x), cast(i32, circles[i].y), 25.f, color);
+                if (i == (stateAnim - 1))
+                    break;
+            }
+        }
+    }
+    limitFrame = std::min<u32>(limitFrame, 40);
+    if (stateAnim > circles.size())
+    {
+        stateAnim = 1;
+    }
+}
+
+
 }  // namespace RA_Anim
 struct ColoredRect
 {
@@ -595,6 +678,8 @@ enum class GameState : u8
 i32                    gHeight {0};
 i32                    gWidth {0};
 u32                    winUIFramCounter {};
+u32                    winFrameLimit {10};
+u8                     state {1};
 u32                    inputFramCounter {0};
 bool                   canRegister {false};
 bool                   canReset {false};
@@ -602,9 +687,10 @@ Vector2                uIPointAnimationWin {0.f, 0.f};
 Vector2                mousePos {0.f, 0.f};
 GameState              currentState {GameState::none};
 RA_Util::GRandom const gRandom(0.f, 1400.f);
-constexpr u16 const    fps {60};
-constexpr u8 const     row    = 3;
-constexpr u8 const     column = 3;
+// constexpr u16 const    fps {60};
+constexpr u8 const row    = 4;
+constexpr u8 const column = 4;
+constexpr u8 const goal   = 3;
 struct Player
 {
     std::bitset<row * column> moves;
@@ -614,12 +700,19 @@ struct Player
 };
 // clang-format off
 // win condition should check this table to state the winner
-inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
+// inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
+// {
+    // 0x007, 0x038,
+    // 0x049, 0x054,
+    // 0x092, 0x111, 
+    // 0x124, 0x1c0
+// };
+
+inline static constexpr std::array<std::bitset<row*column>, 10> const winTable 
 {
-    0x007, 0x038,
-    0x049, 0x054,
-    0x092, 0x111, 
-    0x124, 0x1c0
+    0b1111000000000000,0b0000111100000000,0b0000000011110000,0b0000000000001111,
+    0b1000100010001000,0b0100010001000100,0b0010001000100010,0b0001000100010001,
+    0b1000010000100001,0b0001001001001000
 };
 // clang-format on
 
@@ -732,12 +825,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // init
     SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
-                   FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+                   FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
     InitWindow(0, 0, "FirstGame");
     gHeight = GetScreenHeight();
     gWidth  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(fps);
+    SetTargetFPS(0);
 
     // clang-format off
 
@@ -788,12 +881,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
     // indexes of rects that caus win
-    std::array<u8, 3> indexCausWin {};
-
-    Camera2D const camera {.offset   = Vector2 {},
-                           .target   = Vector2 {},
-                           .rotation = 0.f,
-                           .zoom     = 1.f};
+    std::array<u8, goal>      indexCausWin {};
+    std::array<Vector2, goal> circles {};
+    Camera2D const            camera {.offset   = Vector2 {},
+                                      .target   = Vector2 {},
+                                      .rotation = 0.f,
+                                      .zoom     = 1.f};
     // player1
     Player p1 {.moves = {}, .rectColor = RED, .name = "Red"s, .id = 0};
     // player2
@@ -808,7 +901,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                               .width  = 300.f,
                               .height = 150.f};
 
-
+    // RA_Util::index2PointOnGrid(16, gridinfo);
+    // RA_Util::index2PointOnGrid(15, gridinfo);
+    // RA_Util::index2PointOnGrid(14, gridinfo);
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
     {
@@ -890,7 +985,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 // if 3 bits is set it means you match one
                                 // of the winTable numbers
                                 // ToDo : this 3 should change based on row* col size
-                                if (counter == 3)
+                                if (counter == goal)
                                 {
                                     currentState = GameState::win;
                                     break;
@@ -918,6 +1013,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     // index of rectangle to center point on that rectangle
                     uIPointAnimationWin = RA_Util::index2CenterPointOnGrid(indexCausWin[2],
                                                                            gridinfo);
+                    circles = RA_Anim::defineCircles(gridinfo, indexCausWin);
                     RA_Particle::impulseParticles(particles);
                 }
                 // update tie state
@@ -1011,39 +1107,54 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                cast(f32, font.baseSize * 2),
                                2,
                                wonPlayer->rectColor);
-
+                    // drawWinGameAnimation(10, gridinfo, indexCausWin, WHITE);
                     // animation of wining
-                    auto const v {
-                        RA_Util::index2CenterPointOnGrid(indexCausWin[0], gridinfo)};
-                    auto const v1 {
-                        RA_Util::index2CenterPointOnGrid(indexCausWin[1], gridinfo)};
-                    auto const v2 {
-                        RA_Util::index2CenterPointOnGrid(indexCausWin[2], gridinfo)};
-                    constexpr Color const col = WHITE;
-                    if (winUIFramCounter >= 10)
+                    constexpr Color const color = WHITE;
+                    RA_Anim::drawAnimCircles(winUIFramCounter,
+                                             winFrameLimit,
+                                             state,
+                                             circles,
+                                             color);
+                    // if (winUIFramCounter >= 10)
+                    // {
+                    //     DrawCircle(cast(i32, circles[0].x),
+                    //                cast(i32, circles[0].y),
+                    //                25.f,
+                    //                color);
+                    // }
+                    // if (winUIFramCounter >= 20)
+                    // {
+                    //     DrawCircle(cast(i32, circles[1].x),
+                    //                cast(i32, circles[1].y),
+                    //                25.f,
+                    //                color);
+                    // }
+                    // if (winUIFramCounter >= 30)
+                    // {
+                    //     DrawCircle(cast(i32, circles[2].x),
+                    //                cast(i32, circles[2].y),
+                    //                25.f,
+                    //                color);
+                    // }
+                    // if (winUIFramCounter >= 40)
+                    // {
+                    //     DrawCircle(cast(i32, circles[3].x),
+                    //                cast(i32, circles[3].y),
+                    //                25.f,
+                    //                color);
+                    // }
+                    if (winUIFramCounter >= 50)
                     {
-                        DrawCircle(cast(i32, v.x), cast(i32, v.y), 25.f, col);
+                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 20);
+                        DrawLineEx(uIPointAnimationWin, circles[goal - 1], 10.f, color);
                     }
-                    if (winUIFramCounter >= 20)
-                    {
-                        DrawCircle(cast(i32, v1.x), cast(i32, v1.y), 25.f, col);
-                    }
-                    if (winUIFramCounter >= 30)
-                    {
-                        DrawCircle(cast(i32, v2.x), cast(i32, v2.y), 25.f, col);
-                    }
-                    if (winUIFramCounter >= 40)
-                    {
-                        RA_Util::moveTowards(uIPointAnimationWin, v, 20);
-                        DrawLineEx(uIPointAnimationWin, v2, 10.f, col);
-                    }
-                    if (winUIFramCounter >= 45)
+                    if (winUIFramCounter >= 55)
                     {
                         RA_Particle::drawParticles(particles, wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 700)
                     {
-                        winUIFramCounter = 45;
+                        winUIFramCounter = 55;
                     }
                     break;
                 }
