@@ -1,3 +1,5 @@
+#include "config.hh"
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -596,8 +598,7 @@ auto defineCircles(RA_Util::GridInfo const &    gridInfo,
                    std::array<u8, size> const & indexesCausesWin)
     -> std::array<Vector2, size>
 {
-    // i32                       temp {};
-    std::array<Vector2, size> circles;
+    std::array<Vector2, size> circles {};
     for (size_t i = 0; i < indexesCausesWin.size(); ++i)
     {
         circles[i] = RA_Util::index2CenterPointOnGrid(indexesCausesWin[i], gridInfo);
@@ -607,35 +608,29 @@ auto defineCircles(RA_Util::GridInfo const &    gridInfo,
 
 template <std::size_t size>
 [[maybe_unused]]
-auto drawAnimCircles(u32                               currentFrame,
-                     u32 &                             limitFrame,
-                     u8 &                              stateAnim,
+auto drawAnimCircles(u32 const                         currentFrame,
+                     u32 &                             inFrameLimit,
+                     u8 &                              inAnimState,
+                     u32 const                         resetFrame,
+                     u32 const                         jumpFrame,
+                     u16 const                         jumpState,
                      std::array<Vector2, size> const & circles,
                      Color const                       color) -> void
 {
-    for (size_t i = 0; i < stateAnim; i++)
+    for (u16 i = 0; i < cast(u16, circles.size()); ++i)
     {
-        if (currentFrame == limitFrame)
+        if (currentFrame == inFrameLimit)
         {
-            limitFrame += 10;
-            stateAnim += 1;
-            break;
+            inFrameLimit += jumpFrame;
+            inAnimState += jumpState;
         }
-        else
+        if (i < inAnimState && i < cast(u16, circles.size()))
         {
-            if (i < stateAnim)
-            {
-                DrawCircle(cast(i32, circles[i].x), cast(i32, circles[i].y), 25.f, color);
-                if (i == (stateAnim - 1))
-                    break;
-            }
+            DrawCircle(cast(i32, circles[i].x), cast(i32, circles[i].y), 25.f, color);
         }
     }
-    limitFrame = std::min<u32>(limitFrame, 40);
-    if (stateAnim > circles.size())
-    {
-        stateAnim = 1;
-    }
+    if (inFrameLimit > resetFrame)
+        inFrameLimit = jumpFrame;
 }
 
 
@@ -677,9 +672,10 @@ enum class GameState : u8
 // game glob vars
 i32                    gHeight {0};
 i32                    gWidth {0};
-u32                    winUIFramCounter {};
-u32                    winFrameLimit {10};
-u8                     state {1};
+u32                    winUIFramCounter {0};
+u32                    winFrameLimit {100};
+u32                    winAnimResetFrame {400};
+u8                     winAnimState {1};
 u32                    inputFramCounter {0};
 bool                   canRegister {false};
 bool                   canReset {false};
@@ -1039,6 +1035,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 wonPlayer           = nullptr;
                 canReset            = false;
                 winUIFramCounter    = 0;
+                winFrameLimit       = 10;
+                winAnimState        = 1;
                 uIPointAnimationWin = {};
             }
         }
@@ -1107,42 +1105,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                cast(f32, font.baseSize * 2),
                                2,
                                wonPlayer->rectColor);
-                    // drawWinGameAnimation(10, gridinfo, indexCausWin, WHITE);
                     // animation of wining
                     constexpr Color const color = WHITE;
                     RA_Anim::drawAnimCircles(winUIFramCounter,
                                              winFrameLimit,
-                                             state,
+                                             winAnimState,
+                                             winAnimResetFrame,
+                                             100,
+                                             1,
                                              circles,
                                              color);
-                    // if (winUIFramCounter >= 10)
-                    // {
-                    //     DrawCircle(cast(i32, circles[0].x),
-                    //                cast(i32, circles[0].y),
-                    //                25.f,
-                    //                color);
-                    // }
-                    // if (winUIFramCounter >= 20)
-                    // {
-                    //     DrawCircle(cast(i32, circles[1].x),
-                    //                cast(i32, circles[1].y),
-                    //                25.f,
-                    //                color);
-                    // }
-                    // if (winUIFramCounter >= 30)
-                    // {
-                    //     DrawCircle(cast(i32, circles[2].x),
-                    //                cast(i32, circles[2].y),
-                    //                25.f,
-                    //                color);
-                    // }
-                    // if (winUIFramCounter >= 40)
-                    // {
-                    //     DrawCircle(cast(i32, circles[3].x),
-                    //                cast(i32, circles[3].y),
-                    //                25.f,
-                    //                color);
-                    // }
                     if (winUIFramCounter >= 50)
                     {
                         RA_Util::moveTowards(uIPointAnimationWin, circles[0], 20);
