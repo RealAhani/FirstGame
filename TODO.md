@@ -1,5 +1,5 @@
-Recompile Android without clean-up
-Fuzz test
-CI/CD
-Code Coverage
-GSL ---> android support?
+gridtexture draw with pro
+font rendering 
+menu and scene concept
+texture and anim 
+anim class for ui and game

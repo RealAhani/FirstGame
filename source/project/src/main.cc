@@ -1,5 +1,3 @@
-#include "config.hh"
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -248,7 +246,7 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
 */
 [[nodiscard]] [[maybe_unused]]
 auto genGridTexture(GridInfo const & grid,
-                    i32 const        lineThickness = 10,
+                    f32 const        lineThickness = 10.f,
                     Color const      lineColor     = WHITE,
                     Color const backgroundColor = BLACK) noexcept -> Texture2D
 {
@@ -257,22 +255,24 @@ auto genGridTexture(GridInfo const & grid,
                               backgroundColor);
     // draw in between lines based on col and row
     // drawing row lines
-    f32 yOffset {grid.rect.y};
+    f64 yOffset {cast(f64, lineThickness) * 0.5};
     for (u16 i {}; i <= grid.rowCount; ++i)
     {
-        Vector2 const v0 {grid.rect.x, yOffset};
-        Vector2 const v1 {grid.rect.width + grid.rect.x, yOffset};
-        ImageDrawLineEx(&img, v0, v1, lineThickness, lineColor);
-        yOffset += grid.cellSize.y;
+        Vector2 const v0 {0.f, cast(f32, yOffset)};
+        Vector2 const v1 {grid.rect.width, cast(f32, yOffset)};
+        if (i != 0 && i != grid.rowCount)
+            ImageDrawLineEx(&img, v0, v1, cast(i32, lineThickness), lineColor);
+        yOffset += cast(f64, grid.cellSize.y - (lineThickness * 0.5f));
     }
-    // draw
-    f32 xOffset {grid.rect.x};
+    // draw column lines
+    f64 xOffset {cast(f64, lineThickness) * 0.5};
     for (u16 i {}; i <= grid.columnCount; ++i)
     {
-        Vector2 const v0 {xOffset, grid.rect.y};
-        Vector2 const v1 {xOffset, grid.rect.height + grid.rect.y};
-        ImageDrawLineEx(&img, v0, v1, lineThickness, lineColor);
-        xOffset += grid.cellSize.x;
+        Vector2 const v0 {cast(f32, xOffset), 0.f};
+        Vector2 const v1 {cast(f32, xOffset), grid.rect.height};
+        if (i != 0 && i != grid.rowCount)
+            ImageDrawLineEx(&img, v0, v1, cast(i32, lineThickness), lineColor);
+        xOffset += cast(f64, grid.cellSize.x - (lineThickness * 0.5f));
     }
     Texture2D gridTexture = LoadTextureFromImage(img);
     UnloadImage(img);
@@ -686,7 +686,7 @@ RA_Util::GRandom const gRandom(0.f, 1400.f);
 // constexpr u16 const    fps {60};
 constexpr u8 const row    = 4;
 constexpr u8 const column = 4;
-constexpr u8 const goal   = 3;
+constexpr u8 const goal   = 4;
 struct Player
 {
     std::bitset<row * column> moves;
@@ -696,14 +696,15 @@ struct Player
 };
 // clang-format off
 // win condition should check this table to state the winner
+// win table for 3x3
 // inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
 // {
-    // 0x007, 0x038,
-    // 0x049, 0x054,
-    // 0x092, 0x111, 
-    // 0x124, 0x1c0
+//     0x007, 0x038,
+//     0x049, 0x054,
+//     0x092, 0x111, 
+//     0x124, 0x1c0
 // };
-
+// win table for 4x4
 inline static constexpr std::array<std::bitset<row*column>, 10> const winTable 
 {
     0b1111000000000000,0b0000111100000000,0b0000000011110000,0b0000000000001111,
@@ -856,23 +857,18 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         particles.emplace_back(pr);
     }
 
-    auto const gridRect = RA_Util::placeRelativeCenter(Rectangle {0.f,
-                                                                  0.f,
-                                                                  cast(f32, gWidth),
-                                                                  cast(f32, gHeight)},
-                                                       50,
-                                                       80);
-
-    auto const gridinfo = RA_Util::createGridInfo(gridRect, column, row);
-
-    // center the texture of grid
-    // we need gridinfo to be untouched for draw texture later
-    auto gridTextureinfo   = gridinfo;
-    gridTextureinfo.rect.x = -1.f;
-    gridTextureinfo.rect.y = 0.f;
+    auto const gridinfo = RA_Util::
+        createGridInfo(RA_Util::placeRelativeCenter(Rectangle {0.f,
+                                                               0.f,
+                                                               cast(f32, gWidth),
+                                                               cast(f32, gHeight)},
+                                                    50,
+                                                    80),
+                       column,
+                       row);
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridTextureinfo, 5, WHITE, RA_Global::grey)};
+        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, RA_Global::grey)};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
@@ -1010,6 +1006,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     uIPointAnimationWin = RA_Util::index2CenterPointOnGrid(indexCausWin[2],
                                                                            gridinfo);
                     circles = RA_Anim::defineCircles(gridinfo, indexCausWin);
+                    uIPointAnimationWin = circles[goal - 1];
                     RA_Particle::impulseParticles(particles);
                 }
                 // update tie state
@@ -1035,9 +1032,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 wonPlayer           = nullptr;
                 canReset            = false;
                 winUIFramCounter    = 0;
-                winFrameLimit       = 10;
+                winFrameLimit       = 100;
                 winAnimState        = 1;
                 uIPointAnimationWin = {};
+                winAnimResetFrame   = {400};
+                inputFramCounter    = {0};
             }
         }
         // draw game loop
@@ -1045,11 +1044,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             ClearBackground(RA_Global::grey);
             BeginDrawing();
             BeginMode2D(camera);
-
-            DrawTexture(gridTexture,
-                        cast(i32, gridinfo.rect.x),
-                        cast(i32, gridinfo.rect.y),
-                        WHITE);
+            // draw background grid
+            DrawTexturePro(gridTexture,
+                           Rectangle {0, 0, gridinfo.rect.width, gridinfo.rect.height},
+                           gridinfo.rect,
+                           Vector2 {},
+                           0.f,
+                           WHITE);
             // UI
             {
                 DrawTextEx(font,
@@ -1115,18 +1116,18 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                              1,
                                              circles,
                                              color);
-                    if (winUIFramCounter >= 50)
+                    if (winUIFramCounter >= 500)
                     {
-                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 20);
+                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 1);
                         DrawLineEx(uIPointAnimationWin, circles[goal - 1], 10.f, color);
                     }
-                    if (winUIFramCounter >= 55)
+                    if (winUIFramCounter >= 550)
                     {
                         RA_Particle::drawParticles(particles, wonPlayer->rectColor);
                     }
-                    if (winUIFramCounter > 700)
+                    if (winUIFramCounter > 7000)
                     {
-                        winUIFramCounter = 55;
+                        winUIFramCounter = 550;
                     }
                     break;
                 }
