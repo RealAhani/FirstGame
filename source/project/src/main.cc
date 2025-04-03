@@ -7,9 +7,8 @@ using namespace std::string_view_literals;
 namespace RA_Global
 {
 constexpr u8 const animationFPS = 60;
-
+// all of path should start without / e.g= resources/...
 inline static constexpr str_v const texturePath = "resource/textures/"sv;
-
 inline static constexpr str_v const fontPath    = "resource/fonts/"sv;
 inline static constexpr str_v const shadersPath = "resource/shaders/glsl"sv;
 
@@ -30,24 +29,25 @@ constexpr Color const grey = Color {37, 37, 37, 255};
 auto pathToFile(str_v const fileName, EFileType const fileType) -> str
 {
     str path;
+#if defined(PLATFORM_DESKTOP) // finding abs path on deskto
+    str const root = GetApplicationDirectory();
+    path.append(root);
+#endif
     switch (fileType)
     {
         case EFileType::Font:
         {
-            path.reserve(RA_Global::fontPath.size() + fileName.size());
             path.append(RA_Global::fontPath);
             break;
         }
         case EFileType::Texture:
         {
-            path.reserve(RA_Global::texturePath.size() + fileName.size());
             path.append(RA_Global::texturePath);
             break;
         }
         case EFileType::Shader:
         {
-
-            path.reserve(RA_Global::shadersPath.size() + fileName.size() + 2);
+            // the 2 is the glsl define size
             path.append(RA_Global::shadersPath);
             path.append(TextFormat("%i/", GLSL_VERSION));
             break;
@@ -1137,6 +1137,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                            WHITE);
             // UI
             {
+                // debug on screen write for path of the resource font
+#if 0 
+                DrawText(TextFormat("path : %s ",
+                                    RA_Global::pathToFile("NotoSans-"
+                                                          "VariableFont_wdth,"
+                                                          "wght.ttf",
+                                                          RA_Global::EFileType::Font)
+                                        .c_str()),
+                         200.f,
+                         gHeight / 2.f,
+                         20,
+                         GREEN);
+#endif
                 DrawTextEx(font,
                            TextFormat("resulation : %d x %d", gWidth, gHeight),
                            Vector2 {50.f, 10.f},
@@ -1245,6 +1258,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
     b2DestroyWorld(worldID);
     // worldID = b2_nullWorldId;
+    UnloadTexture(gridTexture);
     UnloadFont(font);
     CloseWindow();
     return 0;
