@@ -1,3 +1,4 @@
+
 namespace
 {
 using namespace std::string_literals;
@@ -9,12 +10,14 @@ constexpr u8 const animationFPS = 60;
 
 inline static constexpr str_v const texturePath = "resource/textures/"sv;
 
-inline static constexpr str_v const fontPath = "resource/fonts/"sv;
+inline static constexpr str_v const fontPath    = "resource/fonts/"sv;
+inline static constexpr str_v const shadersPath = "resource/shaders/glsl"sv;
 
 enum class EFileType : u8
 {
     Texture = 0,
-    Font
+    Font,
+    Shader
 };
 constexpr Color const grey = Color {37, 37, 37, 255};
 
@@ -41,13 +44,98 @@ auto pathToFile(str_v const fileName, EFileType const fileType) -> str
             path.append(RA_Global::texturePath);
             break;
         }
+        case EFileType::Shader:
+        {
+
+            path.reserve(RA_Global::shadersPath.size() + fileName.size() + 2);
+            path.append(RA_Global::shadersPath);
+            path.append(TextFormat("%i/", GLSL_VERSION));
+            break;
+        }
     }
     path.append(fileName);
     return path;
 }
 
 }  // namespace RA_Global
+namespace RA_Font
+{
 
+/*
+ * @Goat: draw text as a sdf mode
+ */
+[[nodiscard]] [[maybe_unused]]
+auto initSDFFont(str_v const fontFileName, i32 const fontSize, i32 const glyphCount)
+    -> std::pair<Font, Shader>
+{
+
+    // Loading file to memory
+    int            fileSize = 0;
+    unsigned char* fileData = LoadFileData(RA_Global::pathToFile(fontFileName,
+                                                                 RA_Global::EFileType::Font)
+                                               .c_str(),
+                                           &fileSize);
+    Font           fontSDF {};
+    fontSDF.baseSize   = fontSize;
+    fontSDF.glyphCount = glyphCount;
+    // Parameters > font size: 16, no glyphs array provided (0), glyphs count: 0 (defaults to 95)
+    fontSDF.glyphs = LoadFontData(fileData, fileSize, fontSize, nullptr, 0, FONT_SDF);
+    // Parameters > glyphs count: 95, font size: 16, glyphs padding in image: 0 px, pack method: 1 (Skyline algorythm)
+    Image const atlas = GenImageFontAtlas(fontSDF.glyphs,
+                                          &fontSDF.recs,
+                                          glyphCount,
+                                          fontSize,
+                                          0,
+                                          1);
+    fontSDF.texture   = LoadTextureFromImage(atlas);
+    UnloadImage(atlas);
+    UnloadFileData(fileData);  // Free memory from loaded file
+    // Load SDF required shader (we use default vertex shader)
+    Shader const shader = LoadShader(nullptr,
+                                     RA_Global::pathToFile("sdf.fs"sv,
+                                                           RA_Global::EFileType::Shader)
+                                         .c_str());
+    SetTextureFilter(fontSDF.texture,
+                     TEXTURE_FILTER_BILINEAR);  // Required for SDF font
+    return std::pair {fontSDF, shader};
+}
+
+/*
+ * @Goat: draw text as a sdf mode
+ */
+[[nodiscard]] [[maybe_unused]]
+auto initFont(str_v const         fontFileName,
+              i32 const           fontSize,
+              TextureFilter const filterFlag) -> std::pair<Font, f32>
+{
+    auto font = LoadFontEx(RA_Global::pathToFile(fontFileName,
+                                                 RA_Global::EFileType::Font)
+                               .c_str(),
+                           fontSize,
+                           nullptr,
+                           0);
+    GenTextureMipmaps(&font.texture);
+    SetTextureFilter(font.texture, filterFlag);
+    return std::pair {font, cast(f32, font.baseSize)};
+}
+
+/*
+ * @Goat: draw text as a sdf mode
+ */
+[[maybe_unused]]
+auto drawTextSDF(Font const &    font,
+                 f32 const       fontSize,
+                 f32 const       fontSpacing,
+                 str const &     msg,
+                 Vector2 const & position,
+                 Shader const &  shader,
+                 Color const &   color) noexcept -> void
+{
+    BeginShaderMode(shader);
+    DrawTextEx(font, msg.c_str(), position, fontSize, fontSpacing, color);
+    EndShaderMode();
+}
+};  // namespace RA_Font
 namespace RA_Util
 {
 
@@ -673,8 +761,8 @@ enum class GameState : u8
 i32                    gHeight {0};
 i32                    gWidth {0};
 u32                    winUIFramCounter {0};
-u32                    winFrameLimit {100};
-u32                    winAnimResetFrame {400};
+u32                    winFrameLimit {10};
+u32                    winAnimResetFrame {40};
 u8                     winAnimState {1};
 u32                    inputFramCounter {0};
 bool                   canRegister {false};
@@ -786,8 +874,6 @@ auto drawParticles(std::vector<Particle> const & particles, Color const color) n
         }
         else
         {
-            // if (b2Body_IsEnabled(pr.bodyID))
-            // {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
             DrawRectanglePro(Rectangle {.x      = -boxPos.x,
                                         .y      = -boxPos.y,
@@ -797,7 +883,6 @@ auto drawParticles(std::vector<Particle> const & particles, Color const color) n
                                       .y = (pr.rect.height / 2.f)},
                              b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) * RAD2DEG,
                              color);
-            // }
         }
     }
 }
@@ -817,6 +902,7 @@ auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
 
 }  // namespace
 
+
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
 
@@ -831,11 +917,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // clang-format off
 
-    // font loading
-    auto const font = LoadFont(
-        RA_Global::pathToFile("NotoSans-VariableFont_wdth,wght.ttf"sv,
-        RA_Global::EFileType::Font).c_str());
+    // auto const [fontSDF,shader]= RA_Font::initSDFFont("NotoSans-VariableFont_wdth,wght.ttf"sv,20,95);
 
+    auto const [font,fontSize] = RA_Font::initFont(
+        "NotoSans-VariableFont_wdth,wght.ttf"sv,
+        100,
+        TEXTURE_FILTER_BILINEAR);
     // clang-format on
 
     // box2d init of the world of the game (box2d-related)
@@ -893,9 +980,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                               .width  = 300.f,
                               .height = 150.f};
 
-    // RA_Util::index2PointOnGrid(16, gridinfo);
-    // RA_Util::index2PointOnGrid(15, gridinfo);
-    // RA_Util::index2PointOnGrid(14, gridinfo);
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
     {
@@ -1032,10 +1116,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 wonPlayer           = nullptr;
                 canReset            = false;
                 winUIFramCounter    = 0;
-                winFrameLimit       = 100;
+                winFrameLimit       = 10;
                 winAnimState        = 1;
                 uIPointAnimationWin = {};
-                winAnimResetFrame   = {400};
+                winAnimResetFrame   = {40};
                 inputFramCounter    = {0};
             }
         }
@@ -1056,25 +1140,28 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 DrawTextEx(font,
                            TextFormat("resulation : %d x %d", gWidth, gHeight),
                            Vector2 {50.f, 10.f},
-                           cast(f32, font.baseSize),
+                           fontSize * 0.25f,
                            2,
                            WHITE);
+
                 DrawTextEx(font,
                            TextFormat("FPS: %d", GetFPS()),
                            Vector2 {50.f, 40.f},
-                           cast(f32, font.baseSize),
+                           fontSize * 0.25f,
                            2,
                            WHITE);
 
                 // reset btn
                 DrawRectangleRoundedLinesEx(resetBtn, .5f, 1, 5, WHITE);
+
                 DrawTextEx(font,
                            "Reset",
-                           Vector2 {resetBtn.x + (resetBtn.width / 2.f) - 31,
-                                    resetBtn.y + (resetBtn.height / 2.f) - 11},
-                           cast(f32, font.baseSize),
+                           Vector2 {resetBtn.x + (resetBtn.width / 2.f) - 70,
+                                    resetBtn.y + (resetBtn.height / 2.f) - 30},
+                           fontSize * 0.75f,
                            2,
                            WHITE);
+
                 // reset btn
             }
             // End UI
@@ -1092,9 +1179,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     DrawTextEx(font,
                                "Turn",
                                Vector2 {70.f, 350.f},
-                               cast(f32, font.baseSize),
+                               fontSize,
                                2,
                                currentPlayer->rectColor);
+
                     break;
                 }
                 case GameState::win:
@@ -1103,31 +1191,32 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     DrawTextEx(font,
                                str {wonPlayer->name + " Won"s}.c_str(),
                                Vector2 {cast(f32, (gWidth / 2.f) - 200.f), 5.f},
-                               cast(f32, font.baseSize * 2),
+                               fontSize,
                                2,
                                wonPlayer->rectColor);
+
                     // animation of wining
                     constexpr Color const color = WHITE;
                     RA_Anim::drawAnimCircles(winUIFramCounter,
                                              winFrameLimit,
                                              winAnimState,
                                              winAnimResetFrame,
-                                             100,
+                                             10,
                                              1,
                                              circles,
                                              color);
-                    if (winUIFramCounter >= 500)
+                    if (winUIFramCounter >= 50)
                     {
-                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 1);
+                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 5);
                         DrawLineEx(uIPointAnimationWin, circles[goal - 1], 10.f, color);
                     }
-                    if (winUIFramCounter >= 550)
+                    if (winUIFramCounter >= 55)
                     {
                         RA_Particle::drawParticles(particles, wonPlayer->rectColor);
                     }
-                    if (winUIFramCounter > 7000)
+                    if (winUIFramCounter > 70)
                     {
-                        winUIFramCounter = 550;
+                        winUIFramCounter = 55;
                     }
                     break;
                 }
@@ -1136,8 +1225,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     DrawTextEx(font,
                                "Tie",
                                Vector2 {cast(f32, (gWidth / 2.f) - 100.f), 5.f},
-                               cast(f32, font.baseSize),
-                               2.f,
+                               fontSize,
+                               2,
                                WHITE);
 
                     RA_Particle::drawParticles(particles, WHITE);
