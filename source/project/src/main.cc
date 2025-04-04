@@ -1,4 +1,3 @@
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -771,6 +770,7 @@ struct UILable
     // *index start from 0
     // *(index < 0) means not init
     i32 const parentInxd;
+    bool      isHidden {false};
 };
 
 struct UIRouondLayout
@@ -786,6 +786,7 @@ struct UIRouondLayout
     // *index start from 0
     // *(index < 0) means not init
     i32 const id;
+    bool      isHidden {false};
 };
 // normat layout like rectangle without rounded corners
 struct UILayout
@@ -802,6 +803,7 @@ struct UILayout
     // *index start from 0
     // *(index < 0) means not init
     i32 const id;
+    bool      isHidden {false};
 };
 
 struct UIButton
@@ -813,7 +815,7 @@ struct UIButton
     i32 const layoutIndx;
     i32 const lableIndx;
     // i32 const iconIndx;
-
+    bool isHidden {false};
     // sound
     // shader
 };
@@ -831,11 +833,15 @@ auto initFont(Font const & font) -> u32
     return fontID++;
 }
 
-auto initRoundButton(i32 const layoutIndx,
-                     i32 const lableIndx /*, i32 const iconIndx */) -> i32
+auto initRoundButton(i32 const  layoutIndx,
+                     i32 const  lableIndx /*, i32 const iconIndx */,
+                     bool const isHidden = false) -> i32
 {
-    static i32 btnID {0};
-    UIButton const btn {.id = btnID++, .layoutIndx = layoutIndx, .lableIndx = lableIndx};
+    static i32     btnID {0};
+    UIButton const btn {.id         = btnID++,
+                        .layoutIndx = layoutIndx,
+                        .lableIndx  = lableIndx,
+                        .isHidden   = isHidden};
     // TODO: add icon
     //  .iconIndx   = iconIndx};
     buttonsArray.emplace_back(btn);
@@ -845,14 +851,16 @@ auto initRoundButton(i32 const layoutIndx,
 auto initRoundLayout(Rectangle const & rect,
                      f32 const         borderRoundness,
                      f32 const         lineThickness,
-                     Color const &     borderColor) -> i32
+                     Color const &     borderColor,
+                     bool const        isHidden = false) -> i32
 {
     static i32           layID {0};
     UIRouondLayout const layout {.rect            = rect,
                                  .borderRoundness = borderRoundness,
                                  .lineThickness   = lineThickness,
                                  .borderColor     = borderColor,
-                                 .id              = layID++};
+                                 .id              = layID++,
+                                 .isHidden        = isHidden};
     layoutArray.emplace_back(layout);
     return (layID - 1);
 }
@@ -864,6 +872,7 @@ auto makeLable(char const*     text,
                u16 const       fontSize         = 20,
                Vector2 const & position         = {0, 0},
                f32 const       fontSpace        = 2.f,
+               bool const      isHidden         = false,
                i32 const       parentLayoutIndx = -1) -> i32
 {
     RA_Util::checkAtRuntime((fontSize <= 0), "font scale should not be zero");
@@ -882,7 +891,8 @@ auto makeLable(char const*     text,
                    .fontSpacing = fontSpace,
                    .textSize = MeasureTextEx(currentFont, text, currentFontSize, fontSpace),
                    .id         = lblID++,
-                   .parentInxd = parentLayoutIndx};
+                   .parentInxd = parentLayoutIndx,
+                   .isHidden   = isHidden};
 
     if (parentLayoutIndx >= 0)
     {
@@ -900,46 +910,60 @@ auto updateLable(u32 const       lableID,
                  char const*     text,
                  Color const &   txtColor,
                  u16 const       fontSize = 20,
+                 bool const      isHidden = false,
                  Vector2 const & position = {0, 0})
 {
     lablesTextArray[lablesArray[lableID].textIndx] = text;
     lablesArray[lableID].textColor                 = txtColor;
     lablesArray[lableID].fontSize                  = fontSize;
     lablesArray[lableID].position                  = position;
+    lablesArray[lableID].isHidden                  = isHidden;
 }
-auto drawLayout(i32 const layoutID) -> void
+auto drawRoundLayout(i32 const layoutID) -> void
 {
     RA_Util::checkAtRuntime((layoutID < 0), "layout id is invalid");
 
     auto const lay = layoutArray[cast(u32, layoutID)];
+    if (lay.isHidden)
+        return;
     DrawRectangleRoundedLinesEx(lay.rect,
                                 lay.borderRoundness,
                                 1,
                                 lay.lineThickness,
                                 lay.borderColor);
 }
+
 // font scale should be bigger than 0.0
 auto drawLable(u32 const lableID) -> void
 {
     RA_Util::checkAtRuntime((lableID < 0), "lable id is invalid");
     UILable const & lable       = lablesArray[lableID];
     Font const &    currentFont = fontsArray[lable.fontIndx];
+    auto const      text        = lablesTextArray[lable.textIndx].c_str();
+
+    if (text == " " || lable.fontSize == 0 || lable.isHidden)
+        return;
+
     DrawTextEx(currentFont,
-               lablesTextArray[lable.textIndx].c_str(),
+               text,
                lable.position,
                lable.fontSize,
                lable.fontSpacing,
                lable.textColor);
 }
+
 // auto drawIcon(u32 const iconId)
 // {
 // }
+
 auto drawRoundButton(u32 const btnID)
 {
     RA_Util::checkAtRuntime((btnID < 0), "btn id is invalid");
     auto const currentBtn = buttonsArray[btnID];
+    if (currentBtn.isHidden)
+        return;
     if (currentBtn.layoutIndx >= 0)
-        drawLayout(currentBtn.layoutIndx);
+        drawRoundLayout(currentBtn.layoutIndx);
     // if (currentBtn.iconIndx >= 0)
     //     drawIcon(currentBtn.iconIndx);
     if (currentBtn.lableIndx >= 0)
@@ -953,14 +977,21 @@ auto makeRoundButton(Rectangle const & rect,
                      char const*       text,
                      Color const &     txtColor,
                      u16 const         fontSize,
+                     bool const        isHidden,
                      u32 const         fontIndx = 0) -> i32
 {
-    i32 const layid = initRoundLayout(rect, borderRoundness, borderThickness, borderColor);
+    i32 const layid = initRoundLayout(rect,
+                                      borderRoundness,
+                                      borderThickness,
+                                      borderColor,
+                                      isHidden);
     RA_Util::checkAtRuntime((layid < 0), "layout id is negative");
-    i32 const lblid = makeLable(text, txtColor, fontIndx, fontSize, Vector2 {}, 2.f, layid);
+    i32 const lblid = makeLable(text, txtColor, fontIndx, fontSize, Vector2 {}, 2.f, isHidden, layid);
     RA_Util::checkAtRuntime((lblid < 0), "lable id is negative");
-    i32 const btnid = initRoundButton(layid, lblid
-                                      /* , i32 const iconIndx*/);
+    i32 const btnid = initRoundButton(layid,
+                                      lblid
+                                      /* , i32 const iconIndx*/,
+                                      isHidden);
     RA_Util::checkAtRuntime((btnid < 0), "btn id is negative");
     return btnid;
 }
@@ -969,34 +1000,6 @@ auto getBtnRect(u32 const btnID) -> Rectangle
 {
     return layoutArray[cast(u32, buttonsArray[btnID].layoutIndx)].rect;
 }
-// struct UIManager{
-// array of icons
-// array of buttons
-// array of lables
-// };
-
-// struct UIScene{
-// sceneID
-// array of iconsID
-// array of buttonsID
-// array of lablesID
-// };
-
-// struct UI
-// {
-//     UIScene   scene;
-//    private:
-//     UIManager manager;
-// };
-
-// struct UIWorld
-// {
-//      std::vector<UI> levels;
-//    private:
-//     UIManager manager;
-// };
-
-
 }  // namespace RA_UI
 
 struct ColoredRect
@@ -1199,7 +1202,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
         100,
         TEXTURE_FILTER_BILINEAR);
-    auto const defaultFont=        RA_UI::initFont(font);
+    auto const defaultFontID=        RA_UI::initFont(font);
 
     // clang-format on
 
@@ -1253,7 +1256,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Player* currentPlayer = &p1;
     Player* wonPlayer {nullptr};
 
-    // ui elements
+    // UI elements init
     // reset btn ui
     i32 const resetBtnID = RA_UI::makeRoundButton(Rectangle {.x = 50.f,
                                                              .y = gridinfo.rect.y,
@@ -1265,24 +1268,34 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                   "Reset",
                                                   WHITE,
                                                   50,
-                                                  defaultFont);
-
+                                                  false,
+                                                  defaultFontID);
+    // resulation lable
     RA_UI::makeLable(TextFormat("resulation : %d x %d", gWidth, gHeight),
                      WHITE,
-                     defaultFont,
+                     defaultFontID,
                      25,
                      Vector2 {50.f, 10.f});
-
-    auto const fpsLblID  = RA_UI::makeLable(TextFormat("FPS: %d", GetFPS()),
+    // fps lable
+    auto const fpsLblID = RA_UI::makeLable(TextFormat("FPS: %d", GetFPS()),
                                            WHITE,
-                                           defaultFont,
+                                           defaultFontID,
                                            25,
                                            Vector2 {50.f, 40.f});
+    // turn lable
     auto const turnLblID = RA_UI::makeLable("Turn",
                                             currentPlayer->rectColor,
-                                            defaultFont,
+                                            defaultFontID,
                                             fontSize,
                                             Vector2 {70.f, 350.f});
+    // gameState lable
+    auto const gameStateLblID = RA_UI::makeLable("",
+                                                 currentPlayer->rectColor,
+                                                 defaultFontID,
+                                                 fontSize,
+                                                 Vector2 {gWidth / 2.f, 5.f},
+                                                 2.f,
+                                                 true);
 
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
@@ -1397,6 +1410,21 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     circles = RA_Anim::defineCircles(gridinfo, indexCausWin);
                     uIPointAnimationWin = circles[goal - 1];
                     RA_Particle::impulseParticles(particles);
+                    RA_UI::updateLable(gameStateLblID,
+                                       str {wonPlayer->name + " Won"s}.c_str(),
+                                       wonPlayer->rectColor,
+                                       100,
+                                       false,
+                                       Vector2 {(gWidth / 2.f) -
+                                                    (MeasureTextEx(font,
+                                                                   str {
+                                                                       wonPlayer->name + " Won"s}
+                                                                       .c_str(),
+                                                                   fontSize,
+                                                                   2.f)
+                                                         .x /
+                                                     2),
+                                                5.f});
                 }
                 // update tie state
                 // touched rect buffer is full but no one won the game
@@ -1405,6 +1433,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     currentState = GameState::tie;
                     RA_Particle::impulseParticles(particles);
+                    RA_UI::updateLable(gameStateLblID,
+                                       "Tie",
+                                       WHITE,
+                                       100,
+                                       false,
+                                       Vector2 {(gWidth / 2.f) -
+                                                    (MeasureTextEx(font, "Tie", fontSize, 2.f)
+                                                         .x /
+                                                     2),
+                                                5.f});
                 }
             }
             // update ui
@@ -1426,17 +1464,21 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 uIPointAnimationWin = {};
                 winAnimResetFrame   = {40};
                 inputFramCounter    = {0};
+                RA_UI::updateLable(gameStateLblID, "", WHITE, 100, true, Vector2 {});
             }
             RA_UI::updateLable(fpsLblID,
                                TextFormat("FPS: %d", GetFPS()),
                                WHITE,
                                25,
+                               false,
                                Vector2 {50.f, 40.f});
 
             RA_UI::updateLable(turnLblID,
                                "Turn",
                                currentPlayer->rectColor,
                                fontSize,
+                               (currentState == GameState::win ||
+                                currentState == GameState::tie),
                                Vector2 {70.f, 350.f});
         }
         // draw game loop
@@ -1482,7 +1524,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             {
                 DrawRectangleRec(rect.rect, rect.color);
             }
-            // win drawing animation and etc ...
+            // state specific drawing animation and etc ...
             switch (currentState)
             {
                 case GameState::none:
@@ -1492,22 +1534,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 case GameState::win:
                 {
                     winUIFramCounter++;
-                    DrawTextEx(font,
-                               str {wonPlayer->name + " Won"s}.c_str(),
-                               Vector2 {cast(f32,
-                                             (gWidth / 2.f) -
-                                                 (MeasureTextEx(font,
-                                                                str {wonPlayer->name + " Won"s}
-                                                                    .c_str(),
-                                                                fontSize,
-                                                                2.f)
-                                                      .x /
-                                                  2)),
-                                        5.f},
-                               fontSize,
-                               2,
-                               wonPlayer->rectColor);
-
                     // animation of wining
                     constexpr Color const color = WHITE;
                     RA_Anim::drawAnimCircles(winUIFramCounter,
@@ -1535,18 +1561,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 }
                 case GameState::tie:
                 {
-                    DrawTextEx(font,
-                               "Tie",
-                               Vector2 {cast(f32,
-                                             (gWidth / 2.f) -
-                                                 (MeasureTextEx(font, "Tie", fontSize, 2.f)
-                                                      .x /
-                                                  2)),
-                                        5.f},
-                               fontSize,
-                               2,
-                               WHITE);
-
                     RA_Particle::drawParticles(particles, WHITE);
                     break;
                 }
