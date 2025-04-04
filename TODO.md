@@ -1,4 +1,3 @@
-ui text managing
 menu and scene concept
 shader for particles
 texture and anim 

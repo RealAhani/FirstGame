@@ -1,4 +1,4 @@
-
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -29,7 +29,7 @@ constexpr Color const grey = Color {37, 37, 37, 255};
 auto pathToFile(str_v const fileName, EFileType const fileType) -> str
 {
     str path;
-#if defined(PLATFORM_DESKTOP) // finding abs path on deskto
+#if defined(PLATFORM_DESKTOP)  // finding abs path on deskto
     str const root = GetApplicationDirectory();
     path.append(root);
 #endif
@@ -135,7 +135,7 @@ auto drawTextSDF(Font const &    font,
     DrawTextEx(font, msg.c_str(), position, fontSize, fontSpacing, color);
     EndShaderMode();
 }
-};  // namespace RA_Font
+}  // namespace RA_Font
 namespace RA_Util
 {
 
@@ -723,6 +723,282 @@ auto drawAnimCircles(u32 const                         currentFrame,
 
 
 }  // namespace RA_Anim
+namespace RA_UI
+{
+// struct UIicon
+// {
+//     Rectangle layout;
+
+//     // *index start from 0
+//     // *(index < 0) means not init
+//     i32 const iconTextureIndx;
+
+//     // Shader shader;
+//     // animate
+
+//     // private:
+
+//     // *index of this item in owner array
+//     // *index start from 0
+//     // *(index < 0) means not init
+//     i32 const id;
+// };
+struct UILable
+{
+    Vector2 position;
+    Color   textColor;
+
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    u32 const fontIndx;
+    // lable allways has a text
+    // an indexid to hash table
+    u64 const textIndx;
+
+    f32     fontSize;
+    f32     fontSpacing;
+    Vector2 textSize;
+    // Shader shader;
+
+    // private:
+
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    i32 const id;
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    i32 const parentInxd;
+};
+
+struct UIRouondLayout
+{
+    Rectangle rect;
+    f32       borderRoundness;
+    f32       lineThickness;
+    Color     borderColor;
+
+
+    // private:
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    i32 const id;
+};
+// normat layout like rectangle without rounded corners
+struct UILayout
+{
+    Rectangle rect;
+    f32       rotation;
+    Color     backgroundColor;
+
+    // can be an array of lable or icon
+
+    // private:
+
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    i32 const id;
+};
+
+struct UIButton
+{
+    // *index of this item in owner array
+    // *index start from 0
+    // *(index < 0) means not init
+    i32 const id;
+    i32 const layoutIndx;
+    i32 const lableIndx;
+    // i32 const iconIndx;
+
+    // sound
+    // shader
+};
+std::vector<UIRouondLayout> layoutArray;
+std::vector<str>            lablesTextArray;
+std::vector<UILable>        lablesArray;
+// std::vector<UIicon>         iconsArray;
+std::vector<UIButton> buttonsArray;
+std::vector<Font>     fontsArray;
+
+auto initFont(Font const & font) -> u32
+{
+    static u32 fontID {0};
+    fontsArray.emplace_back(font);
+    return fontID++;
+}
+
+auto initRoundButton(i32 const layoutIndx,
+                     i32 const lableIndx /*, i32 const iconIndx */) -> i32
+{
+    static i32 btnID {0};
+    UIButton const btn {.id = btnID++, .layoutIndx = layoutIndx, .lableIndx = lableIndx};
+    // TODO: add icon
+    //  .iconIndx   = iconIndx};
+    buttonsArray.emplace_back(btn);
+    return (btnID - 1);
+}
+
+auto initRoundLayout(Rectangle const & rect,
+                     f32 const         borderRoundness,
+                     f32 const         lineThickness,
+                     Color const &     borderColor) -> i32
+{
+    static i32           layID {0};
+    UIRouondLayout const layout {.rect            = rect,
+                                 .borderRoundness = borderRoundness,
+                                 .lineThickness   = lineThickness,
+                                 .borderColor     = borderColor,
+                                 .id              = layID++};
+    layoutArray.emplace_back(layout);
+    return (layID - 1);
+}
+
+// position 0,0 is centerned by default
+auto makeLable(char const*     text,
+               Color const &   txtColor,
+               u32 const       fontIndx         = 0,
+               u16 const       fontSize         = 20,
+               Vector2 const & position         = {0, 0},
+               f32 const       fontSpace        = 2.f,
+               i32 const       parentLayoutIndx = -1) -> i32
+{
+    RA_Util::checkAtRuntime((fontSize <= 0), "font scale should not be zero");
+    RA_Util::checkAtRuntime((fontIndx < 0), "font index is not valid"sv);
+
+    Font const currentFont = fontsArray[cast(u32, fontIndx)];
+    f32 const currentFontSize = cast(f32, currentFont.baseSize) * (fontSize / 100.f);
+    static i32 lblID {0};
+    lablesTextArray.emplace_back(text);
+
+    UILable lable {.position    = position,
+                   .textColor   = txtColor,
+                   .fontIndx    = fontIndx,
+                   .textIndx    = (lablesTextArray.size() - 1),
+                   .fontSize    = currentFontSize,
+                   .fontSpacing = fontSpace,
+                   .textSize = MeasureTextEx(currentFont, text, currentFontSize, fontSpace),
+                   .id         = lblID++,
+                   .parentInxd = parentLayoutIndx};
+
+    if (parentLayoutIndx >= 0)
+    {
+        Rectangle const parentLayout = layoutArray[cast(u32, parentLayoutIndx)].rect;
+        lable.position.x = parentLayout.x + (parentLayout.width / 2.f) -
+                           lable.textSize.x / 2.f;
+        lable.position.y = parentLayout.y + (parentLayout.height / 2.f) -
+                           lable.textSize.y / 2;
+    }
+
+    lablesArray.emplace_back(lable);
+    return (lblID - 1);
+}
+auto updateLable(u32 const       lableID,
+                 char const*     text,
+                 Color const &   txtColor,
+                 u16 const       fontSize = 20,
+                 Vector2 const & position = {0, 0})
+{
+    lablesTextArray[lablesArray[lableID].textIndx] = text;
+    lablesArray[lableID].textColor                 = txtColor;
+    lablesArray[lableID].fontSize                  = fontSize;
+    lablesArray[lableID].position                  = position;
+}
+auto drawLayout(i32 const layoutID) -> void
+{
+    RA_Util::checkAtRuntime((layoutID < 0), "layout id is invalid");
+
+    auto const lay = layoutArray[cast(u32, layoutID)];
+    DrawRectangleRoundedLinesEx(lay.rect,
+                                lay.borderRoundness,
+                                1,
+                                lay.lineThickness,
+                                lay.borderColor);
+}
+// font scale should be bigger than 0.0
+auto drawLable(u32 const lableID) -> void
+{
+    RA_Util::checkAtRuntime((lableID < 0), "lable id is invalid");
+    UILable const & lable       = lablesArray[lableID];
+    Font const &    currentFont = fontsArray[lable.fontIndx];
+    DrawTextEx(currentFont,
+               lablesTextArray[lable.textIndx].c_str(),
+               lable.position,
+               lable.fontSize,
+               lable.fontSpacing,
+               lable.textColor);
+}
+// auto drawIcon(u32 const iconId)
+// {
+// }
+auto drawRoundButton(u32 const btnID)
+{
+    RA_Util::checkAtRuntime((btnID < 0), "btn id is invalid");
+    auto const currentBtn = buttonsArray[btnID];
+    if (currentBtn.layoutIndx >= 0)
+        drawLayout(currentBtn.layoutIndx);
+    // if (currentBtn.iconIndx >= 0)
+    //     drawIcon(currentBtn.iconIndx);
+    if (currentBtn.lableIndx >= 0)
+        drawLable(currentBtn.lableIndx);
+}
+
+auto makeRoundButton(Rectangle const & rect,
+                     f32 const         borderRoundness,
+                     f32 const         borderThickness,
+                     Color const &     borderColor,
+                     char const*       text,
+                     Color const &     txtColor,
+                     u16 const         fontSize,
+                     u32 const         fontIndx = 0) -> i32
+{
+    i32 const layid = initRoundLayout(rect, borderRoundness, borderThickness, borderColor);
+    RA_Util::checkAtRuntime((layid < 0), "layout id is negative");
+    i32 const lblid = makeLable(text, txtColor, fontIndx, fontSize, Vector2 {}, 2.f, layid);
+    RA_Util::checkAtRuntime((lblid < 0), "lable id is negative");
+    i32 const btnid = initRoundButton(layid, lblid
+                                      /* , i32 const iconIndx*/);
+    RA_Util::checkAtRuntime((btnid < 0), "btn id is negative");
+    return btnid;
+}
+
+auto getBtnRect(u32 const btnID) -> Rectangle
+{
+    return layoutArray[cast(u32, buttonsArray[btnID].layoutIndx)].rect;
+}
+// struct UIManager{
+// array of icons
+// array of buttons
+// array of lables
+// };
+
+// struct UIScene{
+// sceneID
+// array of iconsID
+// array of buttonsID
+// array of lablesID
+// };
+
+// struct UI
+// {
+//     UIScene   scene;
+//    private:
+//     UIManager manager;
+// };
+
+// struct UIWorld
+// {
+//      std::vector<UI> levels;
+//    private:
+//     UIManager manager;
+// };
+
+
+}  // namespace RA_UI
+
 struct ColoredRect
 {
     Rectangle rect;
@@ -909,7 +1185,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // init
     SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
                    FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
-    InitWindow(0, 0, "FirstGame");
+    InitWindow(0, 0, "XOXO");
     gHeight = GetScreenHeight();
     gWidth  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
@@ -923,6 +1199,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
         100,
         TEXTURE_FILTER_BILINEAR);
+    auto const defaultFont=        RA_UI::initFont(font);
+
     // clang-format on
 
     // box2d init of the world of the game (box2d-related)
@@ -974,11 +1252,37 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // current player
     Player* currentPlayer = &p1;
     Player* wonPlayer {nullptr};
+
+    // ui elements
     // reset btn ui
-    Rectangle const resetBtn {.x      = 50.f,
-                              .y      = gridinfo.rect.y,
-                              .width  = 300.f,
-                              .height = 150.f};
+    i32 const resetBtnID = RA_UI::makeRoundButton(Rectangle {.x = 50.f,
+                                                             .y = gridinfo.rect.y,
+                                                             .width  = 300.f,
+                                                             .height = 150.f},
+                                                  0.5f,
+                                                  5.f,
+                                                  WHITE,
+                                                  "Reset",
+                                                  WHITE,
+                                                  50,
+                                                  defaultFont);
+
+    RA_UI::makeLable(TextFormat("resulation : %d x %d", gWidth, gHeight),
+                     WHITE,
+                     defaultFont,
+                     25,
+                     Vector2 {50.f, 10.f});
+
+    auto const fpsLblID  = RA_UI::makeLable(TextFormat("FPS: %d", GetFPS()),
+                                           WHITE,
+                                           defaultFont,
+                                           25,
+                                           Vector2 {50.f, 40.f});
+    auto const turnLblID = RA_UI::makeLable("Turn",
+                                            currentPlayer->rectColor,
+                                            defaultFont,
+                                            fontSize,
+                                            Vector2 {70.f, 350.f});
 
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
@@ -1000,7 +1304,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     canRegister = true;
                 }
                 // ui hit detection
-                if (CheckCollisionPointRec(mousePos, resetBtn) && canRegister)
+                if (CheckCollisionPointRec(mousePos, RA_UI::getBtnRect(resetBtnID)) &&
+                    canRegister)
                 {
                     canReset = true;
                 }
@@ -1122,6 +1427,17 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 winAnimResetFrame   = {40};
                 inputFramCounter    = {0};
             }
+            RA_UI::updateLable(fpsLblID,
+                               TextFormat("FPS: %d", GetFPS()),
+                               WHITE,
+                               25,
+                               Vector2 {50.f, 40.f});
+
+            RA_UI::updateLable(turnLblID,
+                               "Turn",
+                               currentPlayer->rectColor,
+                               fontSize,
+                               Vector2 {70.f, 350.f});
         }
         // draw game loop
         {
@@ -1150,32 +1466,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                          20,
                          GREEN);
 #endif
-                DrawTextEx(font,
-                           TextFormat("resulation : %d x %d", gWidth, gHeight),
-                           Vector2 {50.f, 10.f},
-                           fontSize * 0.25f,
-                           2,
-                           WHITE);
 
-                DrawTextEx(font,
-                           TextFormat("FPS: %d", GetFPS()),
-                           Vector2 {50.f, 40.f},
-                           fontSize * 0.25f,
-                           2,
-                           WHITE);
+                // draw lables
+                for (auto const & lbl : RA_UI::lablesArray)
+                    RA_UI::drawLable(cast(u32, lbl.id));
 
-                // reset btn
-                DrawRectangleRoundedLinesEx(resetBtn, .5f, 1, 5, WHITE);
-
-                DrawTextEx(font,
-                           "Reset",
-                           Vector2 {resetBtn.x + (resetBtn.width / 2.f) - 70,
-                                    resetBtn.y + (resetBtn.height / 2.f) - 30},
-                           fontSize * 0.75f,
-                           2,
-                           WHITE);
-
-                // reset btn
+                // draw btns
+                for (auto const & btn : RA_UI::buttonsArray)
+                    RA_UI::drawRoundButton(cast(u32, btn.id));
             }
             // End UI
 
@@ -1189,13 +1487,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             {
                 case GameState::none:
                 {
-                    DrawTextEx(font,
-                               "Turn",
-                               Vector2 {70.f, 350.f},
-                               fontSize,
-                               2,
-                               currentPlayer->rectColor);
-
                     break;
                 }
                 case GameState::win:
@@ -1203,7 +1494,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     winUIFramCounter++;
                     DrawTextEx(font,
                                str {wonPlayer->name + " Won"s}.c_str(),
-                               Vector2 {cast(f32, (gWidth / 2.f) - 200.f), 5.f},
+                               Vector2 {cast(f32,
+                                             (gWidth / 2.f) -
+                                                 (MeasureTextEx(font,
+                                                                str {wonPlayer->name + " Won"s}
+                                                                    .c_str(),
+                                                                fontSize,
+                                                                2.f)
+                                                      .x /
+                                                  2)),
+                                        5.f},
                                fontSize,
                                2,
                                wonPlayer->rectColor);
@@ -1237,7 +1537,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     DrawTextEx(font,
                                "Tie",
-                               Vector2 {cast(f32, (gWidth / 2.f) - 100.f), 5.f},
+                               Vector2 {cast(f32,
+                                             (gWidth / 2.f) -
+                                                 (MeasureTextEx(font, "Tie", fontSize, 2.f)
+                                                      .x /
+                                                  2)),
+                                        5.f},
                                fontSize,
                                2,
                                WHITE);
