@@ -19,6 +19,7 @@
 // raylib headers
 #include <raylib.h>
 #include <raymath.h>
+#include <rlgl.h>
 
 // C++ headers
 #include <iostream>

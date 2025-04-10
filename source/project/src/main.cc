@@ -17,7 +17,7 @@ enum class EFileType : u8
     Font,
     Shader
 };
-constexpr Color const grey = Color {37, 37, 37, 255};
+constexpr Color const gray = Color {37, 37, 37, 255};
 
 /*
  *@Goal: return the path to file based on fileType
@@ -329,6 +329,8 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
 /*
 * @Goal: crete a grid texture
 * @Note: its more performance friendly for static grid
+* @Note: if you want opeque picture zero out the alpha on backgroundColor
+* @Note: Alpha is btw 0 and 255
  TODO: make it lazy load
 */
 [[nodiscard]] [[maybe_unused]]
@@ -826,7 +828,7 @@ std::vector<UILable>        lablesArray;
 std::vector<UIButton> buttonsArray;
 std::vector<Font>     fontsArray;
 
-auto initFont(Font const & font) -> u32
+auto getFontID(Font const & font) -> u32
 {
     static u32 fontID {0};
     fontsArray.emplace_back(font);
@@ -1140,8 +1142,9 @@ auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
 }
 
 [[maybe_unused]]
-auto drawParticles(std::vector<Particle> const & particles, Color const color) noexcept
-    -> void
+auto drawParticles(std::vector<Particle> const & particles,
+                   Shader const &                TestShader,
+                   Color const                   color) noexcept -> void
 {
     for (auto const pr : particles)
     {
@@ -1154,14 +1157,24 @@ auto drawParticles(std::vector<Particle> const & particles, Color const color) n
         else
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
-            DrawRectanglePro(Rectangle {.x      = -boxPos.x,
-                                        .y      = -boxPos.y,
-                                        .width  = pr.rect.width,
-                                        .height = pr.rect.height},
-                             Vector2 {.x = (pr.rect.width / 2.f),
-                                      .y = (pr.rect.height / 2.f)},
-                             b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) * RAD2DEG,
-                             color);
+
+            Texture2D texture = {rlGetTextureIdDefault(),
+                                 (int)pr.rect.width,
+                                 (int)pr.rect.height,
+                                 1,
+                                 PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
+
+            BeginShaderMode(TestShader);
+            DrawTexture(texture, -boxPos.x, -boxPos.y, color);
+            EndShaderMode();
+            // DrawRectanglePro(Rectangle {.x      = -boxPos.x,
+            //                             .y      = -boxPos.y,
+            //                             .width  = pr.rect.width,
+            //                             .height = pr.rect.height},
+            //                  Vector2 {.x = (pr.rect.width / 2.f),
+            //                           .y = (pr.rect.height / 2.f)},
+            //                  b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) *
+            //                  RAD2DEG, color);
         }
     }
 }
@@ -1189,6 +1202,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
                    FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
     InitWindow(0, 0, "XOXO");
+
+    // SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI |
+    // FLAG_VSYNC_HINT); InitWindow(1200, 800, "XOXO");
+
     gHeight = GetScreenHeight();
     gWidth  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
@@ -1202,7 +1219,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
         100,
         TEXTURE_FILTER_BILINEAR);
-    auto const defaultFontID=        RA_UI::initFont(font);
+    auto const defaultFontID=        RA_UI::getFontID(font);
 
     // clang-format on
 
@@ -1236,7 +1253,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                        row);
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, RA_Global::grey)};
+        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, Color {0, 0, 0, 0})};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
@@ -1297,6 +1314,26 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                  2.f,
                                                  true);
 
+    // alireza
+
+    Shader TestShader = LoadShader(0,
+                                   RA_Global::pathToFile("test.fs"sv,
+                                                         RA_Global::EFileType::Shader)
+                                       .c_str());
+
+    f32     iRes[2] = {gWidth / 1.f, gHeight / 1.f};
+    f32     iTime {};
+    Vector2 iMouse {};
+
+    int resLoc   = GetShaderLocation(TestShader, "iRes");
+    i32 timeLoc  = GetShaderLocation(TestShader, "iTime");
+    i32 mouseLoc = GetShaderLocation(TestShader, "iMouse");
+
+
+    SetShaderValue(TestShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
+    SetShaderValue(TestShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(TestShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
+
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
     {
@@ -1322,10 +1359,25 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     canReset = true;
                 }
+                if (IsKeyPressed(KEY_R))
+                {
+                    UnloadShader(TestShader);
+                    TestShader = LoadShader(0,
+                                            RA_Global::pathToFile("test.fs"sv,
+                                                                  RA_Global::EFileType::Shader)
+                                                .c_str());
+                    SetShaderValue(TestShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
+                }
             }
         }
         // update
         {
+            // update shader loc address
+            iTime  = cast(f32, GetTime());
+            iMouse = GetMousePosition();
+            SetShaderValue(TestShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(TestShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
+
             // box2d Update world state (box2d-related)
             b2World_Step(worldID, timeStep, subStepCount);
             // update game state
@@ -1483,10 +1535,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // draw game loop
         {
-            ClearBackground(RA_Global::grey);
+            ClearBackground(RA_Global::gray);
             BeginDrawing();
             BeginMode2D(camera);
+
+
             // draw background grid
+
             DrawTexturePro(gridTexture,
                            Rectangle {0, 0, gridinfo.rect.width, gridinfo.rect.height},
                            gridinfo.rect,
@@ -1551,7 +1606,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     }
                     if (winUIFramCounter >= 55)
                     {
-                        RA_Particle::drawParticles(particles, wonPlayer->rectColor);
+                        RA_Particle::drawParticles(particles,
+                                                   TestShader,
+                                                   wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 70)
                     {
@@ -1561,7 +1618,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 }
                 case GameState::tie:
                 {
-                    RA_Particle::drawParticles(particles, WHITE);
+                    RA_Particle::drawParticles(particles, TestShader, WHITE);
                     break;
                 }
                 case GameState::end:
