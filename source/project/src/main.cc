@@ -1159,8 +1159,8 @@ auto drawParticles(std::vector<Particle> const & particles,
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
 
             Texture2D texture = {rlGetTextureIdDefault(),
-                                 (int)pr.rect.width,
-                                 (int)pr.rect.height,
+                                 (int)pr.rect.width * 5,
+                                 (int)pr.rect.height * 5,
                                  1,
                                  PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
 

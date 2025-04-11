@@ -14,18 +14,35 @@ uniform vec4      colDiffuse;
 
 // Output fragment color
 out vec4 finalColor;
+float    invert(float a)
+{
+    return 1.0 - a;
+}
+vec2 invert(vec2 a)
+{
+    return 1.0 - a;
+}
+float CalcAspectRatio()
+{
+    return iRes.x / iRes.y;
+}
+
+// clang-format off
+const float Radious = 1.9;
+// clang-format on
 
 void main()
 {
-    vec2 uv = fragTexCoord.xy;
+    vec2 uv = fragTexCoord;
+    uv.y    = invert(uv.y);
+    uv -= 0.5;
+    // uvx *= CalcAspectRatio();
 
-    uv -= .5;
+    float R = length(uv * Radious);
+    R *= smoothstep(0.1, 1., R * 2.5 * Radious);
 
-    float rx = length(uv) / 2.;
+    R = invert(R);
 
-    float sx = smoothstep(.2, .3, rx);
-
-    float nx = (1. - sx) * (sin(iTime));
-
-    finalColor = vec4(vec3(nx * 1.5) * fragColor.rgb, 1.);
+    // vec3 scaler = vec3(1., 2., 3.);
+    finalColor = vec4(vec3(R) * fragColor.rgb, R);
 }
