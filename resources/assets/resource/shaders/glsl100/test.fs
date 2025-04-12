@@ -1,8 +1,9 @@
-#version 330
+#version 100
 
+precision mediump float;
 // Input vertex attributes (from vertex shader)
-in vec2 fragTexCoord;
-in vec4 fragColor;
+varying vec2 fragTexCoord;
+varying vec4 fragColor;
 
 // Input uniform values
 uniform vec2 iRes;
@@ -12,9 +13,7 @@ uniform vec2 iRes;
 // uniform sampler2D texture0;
 // uniform vec4      colDiffuse;
 
-// Output fragment color
-out vec4 finalColor;
-float    invert(float a)
+float invert(float a)
 {
     return 1.0 - a;
 }
@@ -44,6 +43,6 @@ void main()
 
     R = invert(R);
 
-    vec3 scaler = vec3(10., 20., 30.);
-    finalColor  = vec4(vec3(R) * scaler * fragColor.rgb, R);
+    vec3 scaler  = vec3(10., 20., 30.);
+    gl_FragColor = vec4(vec3(R) * scaler * fragColor.rgb, R);
 }

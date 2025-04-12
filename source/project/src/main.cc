@@ -1,3 +1,4 @@
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1143,7 +1144,7 @@ auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
 
 [[maybe_unused]]
 auto drawParticles(std::vector<Particle> const & particles,
-                   Shader const &                TestShader,
+                   RenderTexture2D const &       texture,
                    Color const                   color) noexcept -> void
 {
     for (auto const pr : particles)
@@ -1157,24 +1158,8 @@ auto drawParticles(std::vector<Particle> const & particles,
         else
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
-
-            Texture2D texture = {rlGetTextureIdDefault(),
-                                 (int)pr.rect.width * 5,
-                                 (int)pr.rect.height * 5,
-                                 1,
-                                 PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
-
-            BeginShaderMode(TestShader);
-            DrawTexture(texture, -boxPos.x, -boxPos.y, color);
-            EndShaderMode();
-            // DrawRectanglePro(Rectangle {.x      = -boxPos.x,
-            //                             .y      = -boxPos.y,
-            //                             .width  = pr.rect.width,
-            //                             .height = pr.rect.height},
-            //                  Vector2 {.x = (pr.rect.width / 2.f),
-            //                           .y = (pr.rect.height / 2.f)},
-            //                  b2Rot_GetAngle(b2Body_GetRotation(pr.bodyID)) *
-            //                  RAD2DEG, color);
+            // DrawTexture(texture.texture, -boxPos.x, -boxPos.y, color);
+            DrawTextureEx(texture.texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.5f, color);
         }
     }
 }
@@ -1212,15 +1197,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetTargetFPS(0);
 
     // clang-format off
-
-    // auto const [fontSDF,shader]= RA_Font::initSDFFont("NotoSans-VariableFont_wdth,wght.ttf"sv,20,95);
-
     auto const [font,fontSize] = RA_Font::initFont(
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
         100,
         TEXTURE_FILTER_BILINEAR);
     auto const defaultFontID=        RA_UI::getFontID(font);
-
     // clang-format on
 
     // box2d init of the world of the game (box2d-related)
@@ -1314,25 +1295,26 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                  2.f,
                                                  true);
 
-    // alireza
+    // particle shader and render texture init
+    Shader const particleShader = LoadShader(nullptr,
+                                             RA_Global::pathToFile("test.fs"sv,
+                                                                   RA_Global::EFileType::Shader)
+                                                 .c_str());
+    f32 const    iRes[2]        = {gWidth / 1.f, gHeight / 1.f};
+    i32 const    resLoc         = GetShaderLocation(particleShader, "iRes");
+    SetShaderValue(particleShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
+    u8 const        size {255};
+    Texture2D const tempTexture =
+        {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
+    RenderTexture2D const effectTexture = LoadRenderTexture(size, size);
+    BeginTextureMode(effectTexture);
+    ClearBackground(BLANK);
+    BeginShaderMode(particleShader);
+    DrawTexture(tempTexture, 0, 0, WHITE);
+    EndShaderMode();
+    EndTextureMode();
+    UnloadShader(particleShader);
 
-    Shader TestShader = LoadShader(0,
-                                   RA_Global::pathToFile("test.fs"sv,
-                                                         RA_Global::EFileType::Shader)
-                                       .c_str());
-
-    f32     iRes[2] = {gWidth / 1.f, gHeight / 1.f};
-    f32     iTime {};
-    Vector2 iMouse {};
-
-    int resLoc   = GetShaderLocation(TestShader, "iRes");
-    i32 timeLoc  = GetShaderLocation(TestShader, "iTime");
-    i32 mouseLoc = GetShaderLocation(TestShader, "iMouse");
-
-
-    SetShaderValue(TestShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
-    SetShaderValue(TestShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(TestShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
 
     // game loop
     while (!WindowShouldClose() && currentState != GameState::end)
@@ -1359,24 +1341,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     canReset = true;
                 }
-                if (IsKeyPressed(KEY_R))
-                {
-                    UnloadShader(TestShader);
-                    TestShader = LoadShader(0,
-                                            RA_Global::pathToFile("test.fs"sv,
-                                                                  RA_Global::EFileType::Shader)
-                                                .c_str());
-                    SetShaderValue(TestShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
-                }
             }
         }
         // update
         {
             // update shader loc address
-            iTime  = cast(f32, GetTime());
-            iMouse = GetMousePosition();
-            SetShaderValue(TestShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(TestShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
+            // iMouse = GetMousePosition();
+            // SetShaderValue(particleShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
+            // SetShaderValue(particleShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
 
             // box2d Update world state (box2d-related)
             b2World_Step(worldID, timeStep, subStepCount);
@@ -1607,7 +1579,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     if (winUIFramCounter >= 55)
                     {
                         RA_Particle::drawParticles(particles,
-                                                   TestShader,
+                                                   effectTexture,
                                                    wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 70)
@@ -1618,7 +1590,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 }
                 case GameState::tie:
                 {
-                    RA_Particle::drawParticles(particles, TestShader, WHITE);
+                    RA_Particle::drawParticles(particles, effectTexture, WHITE);
                     break;
                 }
                 case GameState::end:
@@ -1633,8 +1605,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     }
     // clean-up
     b2DestroyWorld(worldID);
-    // worldID = b2_nullWorldId;
     UnloadTexture(gridTexture);
+    UnloadRenderTexture(effectTexture);
     UnloadFont(font);
     CloseWindow();
     return 0;
