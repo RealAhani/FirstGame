@@ -1,3 +1,4 @@
+#include "box2d/box2d.h"
 #include "raylib.h"
 namespace
 {
@@ -1142,16 +1143,28 @@ auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
     }
 }
 
+auto isClippingForRender(Vector2 const & pos, Rectangle const & boundry) noexcept
+    -> bool
+{
+    // Demorgan law
+    return (pos.y > boundry.height || pos.x > boundry.width || pos.x < boundry.x);
+}
+
 [[maybe_unused]]
 auto drawParticles(std::vector<Particle> const & particles,
-                   RenderTexture2D const &       texture,
-                   Color const                   color) noexcept -> void
+                   Texture2D const &             texture,
+                   Color const &                 color) noexcept -> void
 {
+    Rectangle const boundRect {.x      = -300.f,
+                               .y      = 0,
+                               .width  = cast(f32, gWidth),
+                               .height = gHeight + 50.f};
+
     for (auto const pr : particles)
     {
-        if (b2Body_GetPosition(pr.bodyID).y * -1 > cast(f32, gHeight) ||
-            b2Body_GetPosition(pr.bodyID).x * -1 > cast(f32, gWidth) ||
-            b2Body_GetPosition(pr.bodyID).x * -1 < 20.f)
+        if (isClippingForRender(Vector2 {.x = (b2Body_GetPosition(pr.bodyID).x * -1),
+                                         .y = (b2Body_GetPosition(pr.bodyID).y * -1)},
+                                boundRect))
         {
             b2Body_Disable(pr.bodyID);
         }
@@ -1159,7 +1172,7 @@ auto drawParticles(std::vector<Particle> const & particles,
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
             // DrawTexture(texture.texture, -boxPos.x, -boxPos.y, color);
-            DrawTextureEx(texture.texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.5f, color);
+            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.5f, color);
         }
     }
 }
@@ -1244,7 +1257,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Camera2D const            camera {.offset   = Vector2 {},
                                       .target   = Vector2 {},
                                       .rotation = 0.f,
-                                      .zoom     = 1.f};
+                                      .zoom     = 1.0f};
     // player1
     Player p1 {.moves = {}, .rectColor = RED, .name = "Red"s, .id = 0};
     // player2
@@ -1520,32 +1533,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                            Vector2 {},
                            0.f,
                            WHITE);
-            // UI
-            {
-                // debug on screen write for path of the resource font
-#if 0 
-                DrawText(TextFormat("path : %s ",
-                                    RA_Global::pathToFile("NotoSans-"
-                                                          "VariableFont_wdth,"
-                                                          "wght.ttf",
-                                                          RA_Global::EFileType::Font)
-                                        .c_str()),
-                         200.f,
-                         gHeight / 2.f,
-                         20,
-                         GREEN);
-#endif
-
-                // draw lables
-                for (auto const & lbl : RA_UI::lablesArray)
-                    RA_UI::drawLable(cast(u32, lbl.id));
-
-                // draw btns
-                for (auto const & btn : RA_UI::buttonsArray)
-                    RA_UI::drawRoundButton(cast(u32, btn.id));
-            }
-            // End UI
-
             // touched rect buffer drawing
             for (auto const & rect : rects)
             {
@@ -1579,7 +1566,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     if (winUIFramCounter >= 55)
                     {
                         RA_Particle::drawParticles(particles,
-                                                   effectTexture,
+                                                   effectTexture.texture,
                                                    wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 70)
@@ -1590,7 +1577,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 }
                 case GameState::tie:
                 {
-                    RA_Particle::drawParticles(particles, effectTexture, WHITE);
+                    RA_Particle::drawParticles(particles, effectTexture.texture, WHITE);
                     break;
                 }
                 case GameState::end:
@@ -1599,6 +1586,31 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 default:
                     break;
             }
+            // UI
+            {
+                // debug on screen write for path of the resource font
+#if 0 
+                            DrawText(TextFormat("path : %s ",
+                                                RA_Global::pathToFile("NotoSans-"
+                                                                      "VariableFont_wdth,"
+                                                                      "wght.ttf",
+                                                                      RA_Global::EFileType::Font)
+                                                    .c_str()),
+                                     200.f,
+                                     gHeight / 2.f,
+                                     20,
+                                     GREEN);
+#endif
+
+                // draw lables
+                for (auto const & lbl : RA_UI::lablesArray)
+                    RA_UI::drawLable(cast(u32, lbl.id));
+
+                // draw btns
+                for (auto const & btn : RA_UI::buttonsArray)
+                    RA_UI::drawRoundButton(cast(u32, btn.id));
+            }
+            // End UI
             EndMode2D();
             EndDrawing();
         }
