@@ -1,5 +1,3 @@
-#include "box2d/box2d.h"
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1053,7 +1051,7 @@ bool                   canReset {false};
 Vector2                uIPointAnimationWin {0.f, 0.f};
 Vector2                mousePos {0.f, 0.f};
 GameState              currentState {GameState::none};
-RA_Util::GRandom const gRandom(0.f, 1400.f);
+RA_Util::GRandom const gRandom(-1200.f, 1500.f);
 // constexpr u16 const    fps {60};
 constexpr u8 const row    = 4;
 constexpr u8 const column = 4;
@@ -1130,17 +1128,31 @@ auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
     {
         f32 force = 0.f;
         if (i < (particles.size() / 2))
-            force = -500;
+            force = -(800 + gRandom.getRandom());
         else
-            force = 500;
+            force = 1600 + gRandom.getRandom();
         b2Body_Enable(pr.bodyID);
         b2Body_ApplyForceToCenter(pr.bodyID,
                                   b2Vec2 {.x = force * gRandom.getRandom(),
                                           .y = force * gRandom.getRandom()},
                                   true);
-        b2Body_ApplyTorque(pr.bodyID, force * gRandom.getRandom(), true);
         i++;
     }
+}
+
+[[maybe_unused]]
+auto impulseParticle(Particle const & pr) noexcept -> void
+{
+    f32 force = 0.f;
+    if (cast(u16, gRandom.getRandom()) % 2 == 0)
+        force = -(800 + gRandom.getRandom());
+    else
+        force = 1600 + gRandom.getRandom();
+    b2Body_Enable(pr.bodyID);
+    b2Body_ApplyForceToCenter(pr.bodyID,
+                              b2Vec2 {.x = force * gRandom.getRandom(),
+                                      .y = force * gRandom.getRandom()},
+                              true);
 }
 
 auto isClippingForRender(Vector2 const & pos, Rectangle const & boundry) noexcept
@@ -1150,10 +1162,32 @@ auto isClippingForRender(Vector2 const & pos, Rectangle const & boundry) noexcep
     return (pos.y > boundry.height || pos.x > boundry.width || pos.x < boundry.x);
 }
 
+
+[[maybe_unused]]
+auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
+{
+    for (auto const pr : particles)
+    {
+        b2Body_SetTransform(pr.bodyID,
+                            b2Vec2 {.x = -1.f * gRandom.getRandom(),
+                                    .y = (gHeight / 3.f)},
+                            b2MakeRot(0.f));
+        b2Body_Disable(pr.bodyID);
+    }
+}
+[[maybe_unused]]
+auto resetParticle(Particle const & pr) noexcept -> void
+{
+    b2Body_SetTransform(pr.bodyID,
+                        b2Vec2 {.x = -1.f * gRandom.getRandom(),
+                                .y = (gHeight / 3.f)},
+                        b2MakeRot(0.f));
+    b2Body_Disable(pr.bodyID);
+}
 [[maybe_unused]]
 auto drawParticles(std::vector<Particle> const & particles,
                    Texture2D const &             texture,
-                   Color const &                 color) noexcept -> void
+                   Color                         color) noexcept -> void
 {
     Rectangle const boundRect {.x      = -300.f,
                                .y      = 0,
@@ -1166,26 +1200,15 @@ auto drawParticles(std::vector<Particle> const & particles,
                                          .y = (b2Body_GetPosition(pr.bodyID).y * -1)},
                                 boundRect))
         {
-            b2Body_Disable(pr.bodyID);
+            // b2Body_Disable(pr.bodyID);
+            resetParticle(pr);
+            impulseParticle(pr);
         }
         else
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
-            // DrawTexture(texture.texture, -boxPos.x, -boxPos.y, color);
-            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.5f, color);
+            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.4f, color);
         }
-    }
-}
-[[maybe_unused]]
-auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
-{
-    for (auto const pr : particles)
-    {
-        b2Body_SetTransform(pr.bodyID,
-                            b2Vec2 {.x = -1.f * gRandom.getRandom(),
-                                    .y = cast(f32, gHeight - 200)},
-                            b2MakeRot(0.f));
-        b2Body_Disable(pr.bodyID);
     }
 }
 }  // namespace RA_Particle
@@ -1207,7 +1230,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     gHeight = GetScreenHeight();
     gWidth  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(0);
+    SetTargetFPS(60);
 
     // clang-format off
     auto const [font,fontSize] = RA_Font::initFont(
@@ -1220,16 +1243,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
     b2WorldId const       worldID = RA_Particle::initWorldOfBox2d();
-    constexpr f32 const   timeStep {1.f / 30.f};  // 30HZ
+    constexpr f32 const   timeStep {1.f / 60.f};  // 30HZ
     constexpr u8 const    subStepCount {3};
     std::vector<Particle> particles {};
-    particles.reserve(1000);
+    particles.reserve(2000);
     // create dynamic bodies
-    for (u16 i {}; i < 1000; ++i)
+    for (u16 i {}; i < 2000; ++i)
     {
         Particle pr {};
         pr.rect.x      = gRandom.getRandom();
-        pr.rect.y      = cast(f32, (gHeight - 200) * -1);
+        pr.rect.y      = ((gHeight / 3.f) * -1);
         pr.rect.height = 15;
         pr.rect.width  = 15;
         pr.bodyID      = RA_Particle::creatDynamicBody(pr, worldID);
