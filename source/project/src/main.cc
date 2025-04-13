@@ -1,3 +1,5 @@
+#include "config.hh"
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1270,7 +1272,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                        row);
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, Color {0, 0, 0, 0})};
+        RA_Util::genGridTexture(gridinfo, 15.f, WHITE, Color {0, 0, 0, 0})};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
@@ -1331,24 +1333,51 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                  2.f,
                                                  true);
 
+    // shader uniforms
+    f32 const iRes[2] = {gWidth / 1.f, gHeight / 1.f};
+    f32       iTime {};
+
+    // shader and render texture setup
+
+    // particle render target and texture
+    u8 const        size {255};
+    Texture2D const tempTexture =
+        {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
+    RenderTexture2D const particleRenderTexture = LoadRenderTexture(size, size);
+
     // particle shader and render texture init
     Shader const particleShader = LoadShader(nullptr,
                                              RA_Global::pathToFile("test.fs"sv,
                                                                    RA_Global::EFileType::Shader)
                                                  .c_str());
-    f32 const    iRes[2]        = {gWidth / 1.f, gHeight / 1.f};
-    i32 const    resLoc         = GetShaderLocation(particleShader, "iRes");
-    SetShaderValue(particleShader, resLoc, iRes, SHADER_UNIFORM_VEC2);
-    u8 const        size {255};
-    Texture2D const tempTexture =
-        {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
-    RenderTexture2D const effectTexture = LoadRenderTexture(size, size);
-    BeginTextureMode(effectTexture);
-    ClearBackground(BLANK);
-    BeginShaderMode(particleShader);
-    DrawTexture(tempTexture, 0, 0, WHITE);
-    EndShaderMode();
+    i32 const    resLocParticle = GetShaderLocation(particleShader, "iRes");
+    SetShaderValue(particleShader, resLocParticle, iRes, SHADER_UNIFORM_VEC2);
+
+    // background shader
+    Shader const
+              backgroundShader  = LoadShader(nullptr,
+                                      RA_Global::pathToFile("background.fs"sv,
+                                                            RA_Global::EFileType::Shader)
+                                          .c_str());
+    i32 const resLocBackground  = GetShaderLocation(backgroundShader, "iRes");
+    i32 const timeLocBackground = GetShaderLocation(backgroundShader, "iTime");
+    SetShaderValue(backgroundShader, resLocBackground, iRes, SHADER_UNIFORM_VEC2);
+    SetShaderValue(backgroundShader, timeLocBackground, &iTime, SHADER_UNIFORM_FLOAT);
+
+
+    BeginTextureMode(particleRenderTexture);
+    {
+        ClearBackground(BLANK);
+        {
+            {
+                BeginShaderMode(particleShader);
+                DrawTexture(tempTexture, 0, 0, WHITE);
+                EndShaderMode();
+            }
+        }
+    }
     EndTextureMode();
+
     UnloadShader(particleShader);
 
 
@@ -1382,8 +1411,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         // update
         {
             // update shader loc address
+            iTime = GetTime();
             // iMouse = GetMousePosition();
-            // SetShaderValue(particleShader, timeLoc, &iTime, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(backgroundShader,
+                           timeLocBackground,
+                           &iTime,
+                           SHADER_UNIFORM_FLOAT);
             // SetShaderValue(particleShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
 
             // box2d Update world state (box2d-related)
@@ -1547,9 +1580,20 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             BeginDrawing();
             BeginMode2D(camera);
 
+            {
+                // draw backgournd shader
+                BeginShaderMode(backgroundShader);
+                {
+                    DrawRectangleRec({.x      = 0,
+                                      .y      = 0,
+                                      .width  = gWidth / 1.f,
+                                      .height = gHeight / 1.f},
 
-            // draw background grid
-
+                                     WHITE);
+                }
+                EndShaderMode();
+                // draw background grid
+            }
             DrawTexturePro(gridTexture,
                            Rectangle {0, 0, gridinfo.rect.width, gridinfo.rect.height},
                            gridinfo.rect,
@@ -1561,6 +1605,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             {
                 DrawRectangleRec(rect.rect, rect.color);
             }
+
             // state specific drawing animation and etc ...
             switch (currentState)
             {
@@ -1589,7 +1634,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     if (winUIFramCounter >= 55)
                     {
                         RA_Particle::drawParticles(particles,
-                                                   effectTexture.texture,
+                                                   particleRenderTexture.texture,
                                                    wonPlayer->rectColor);
                     }
                     if (winUIFramCounter > 70)
@@ -1600,7 +1645,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 }
                 case GameState::tie:
                 {
-                    RA_Particle::drawParticles(particles, effectTexture.texture, WHITE);
+                    RA_Particle::drawParticles(particles,
+                                               particleRenderTexture.texture,
+                                               WHITE);
                     break;
                 }
                 case GameState::end:
@@ -1641,8 +1688,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
     b2DestroyWorld(worldID);
     UnloadTexture(gridTexture);
-    UnloadRenderTexture(effectTexture);
+    UnloadRenderTexture(particleRenderTexture);
     UnloadFont(font);
+    UnloadShader(backgroundShader);
     CloseWindow();
     return 0;
 }
