@@ -1,17 +1,17 @@
 // https://www.shadertoy.com/view/3cXSWn
-#version 330
+#version 100
+
 precision highp float;
+
 // Input vertex attributes (from vertex shader)
-in vec2 fragTexCoord;
-in vec4 fragColor;
+varying vec2 fragTexCoord;
+varying vec4 fragColor;
 
 // Input uniform values
 uniform vec2  iRes;
 uniform float iTime;
 uniform vec3  iColor;
 
-// Output fragment color
-out vec4 finalColor;
 
 float RandFloat(vec2 p)
 {
@@ -91,7 +91,8 @@ void main()
     {
         resultColor.rgb = vec3(iColor.b + randR, iColor.b + randR, iColor.b + randR);
     }
-    vec3 col = vec3(m) * resultColor.rgb * 0.0005;
+    vec3 col = vec3(m) * resultColor.rgb * 0.0008;
+    ;
 
-    finalColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, 1.0);
 }

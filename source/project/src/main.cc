@@ -1248,9 +1248,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     constexpr f32 const   timeStep {1.f / 60.f};  // 30HZ
     constexpr u8 const    subStepCount {3};
     std::vector<Particle> particles {};
-    particles.reserve(2000);
+    particles.reserve(1000);
     // create dynamic bodies
-    for (u16 i {}; i < 2000; ++i)
+    for (u16 i {}; i < 1000; ++i)
     {
         Particle pr {};
         pr.rect.x      = gRandom.getRandom();
@@ -1272,7 +1272,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                        row);
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridinfo, 15.f, WHITE, Color {0, 0, 0, 0})};
+        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, Color {0, 0, 0, 0})};
 
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
@@ -1284,9 +1284,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                       .rotation = 0.f,
                                       .zoom     = 1.0f};
     // player1
-    Player p1 {.moves = {}, .rectColor = RED, .name = "Red"s, .id = 0};
+    Player p1 {.moves = {}, .rectColor = {200, 0, 0, 255}, .name = "Red"s, .id = 0};
     // player2
-    Player p2 {.moves = {}, .rectColor = BLUE, .name = "Blue"s, .id = 1};
+    Player p2 {.moves = {}, .rectColor = {0, 0, 230, 255}, .name = "Blue"s, .id = 1};
 
     // current player
     Player* currentPlayer = &p1;
@@ -1319,11 +1319,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                            25,
                                            Vector2 {50.f, 40.f});
     // turn lable
-    auto const turnLblID = RA_UI::makeLable("Turn",
-                                            currentPlayer->rectColor,
-                                            defaultFontID,
-                                            fontSize,
-                                            Vector2 {70.f, 350.f});
+    // auto const turnLblID = RA_UI::makeLable("Turn",
+    //                                         currentPlayer->rectColor,
+    //                                         defaultFontID,
+    //                                         fontSize,
+    //                                         Vector2 {70.f, 350.f});
     // gameState lable
     auto const gameStateLblID = RA_UI::makeLable("",
                                                  currentPlayer->rectColor,
@@ -1334,7 +1334,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                  true);
 
     // shader uniforms
-    f32 const iRes[2] = {gWidth / 1.f, gHeight / 1.f};
+    f32 const iRes[2] = {cast(f32, gWidth), cast(f32, gHeight)};
     f32       iTime {};
 
     // shader and render texture setup
@@ -1345,6 +1345,17 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     RenderTexture2D const particleRenderTexture = LoadRenderTexture(size, size);
 
+    // background texture and render texture setup
+    Texture2D const tempTexture2 = {rlGetTextureIdDefault(),
+                                    cast(u16, gWidth * .5f),
+                                    cast(u16, gHeight * .5f),
+                                    1,
+                                    PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
+    RenderTexture2D const
+        backgourndRenderTexture = LoadRenderTexture(cast(u16, gWidth * .5f),
+                                                    cast(u16, gHeight * .5f));
+
+
     // particle shader and render texture init
     Shader const particleShader = LoadShader(nullptr,
                                              RA_Global::pathToFile("test.fs"sv,
@@ -1354,15 +1365,23 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetShaderValue(particleShader, resLocParticle, iRes, SHADER_UNIFORM_VEC2);
 
     // background shader
+    f32 iColor[3] = {cast(f32, currentPlayer->rectColor.r),
+                     cast(f32, currentPlayer->rectColor.g),
+                     cast(f32, currentPlayer->rectColor.b)};
+
     Shader const
-              backgroundShader  = LoadShader(nullptr,
+        backgroundShader = LoadShader(nullptr,
                                       RA_Global::pathToFile("background.fs"sv,
                                                             RA_Global::EFileType::Shader)
                                           .c_str());
+
     i32 const resLocBackground  = GetShaderLocation(backgroundShader, "iRes");
     i32 const timeLocBackground = GetShaderLocation(backgroundShader, "iTime");
+    i32 const colorLoc          = GetShaderLocation(backgroundShader, "iColor");
+
     SetShaderValue(backgroundShader, resLocBackground, iRes, SHADER_UNIFORM_VEC2);
     SetShaderValue(backgroundShader, timeLocBackground, &iTime, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
 
 
     BeginTextureMode(particleRenderTexture);
@@ -1412,12 +1431,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {
             // update shader loc address
             iTime = GetTime();
-            // iMouse = GetMousePosition();
             SetShaderValue(backgroundShader,
                            timeLocBackground,
                            &iTime,
                            SHADER_UNIFORM_FLOAT);
-            // SetShaderValue(particleShader, mouseLoc, &iMouse, SHADER_UNIFORM_VEC2);
+            SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
 
             // box2d Update world state (box2d-related)
             b2World_Step(worldID, timeStep, subStepCount);
@@ -1489,6 +1507,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 {
                                     currentPlayer = &p1;
                                 }
+                                // update player color for background shader
+                                iColor[0] = currentPlayer->rectColor.r;
+                                iColor[1] = currentPlayer->rectColor.g;
+                                iColor[2] = currentPlayer->rectColor.b;
                             }
                         }
                     }
@@ -1525,6 +1547,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                          currentState == GameState::none)
                 {
                     currentState = GameState::tie;
+                    iColor[0]    = 255;
+                    iColor[1]    = 255;
+                    iColor[2]    = 255;
                     RA_Particle::impulseParticles(particles);
                     RA_UI::updateLable(gameStateLblID,
                                        "Tie",
@@ -1558,6 +1583,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 winAnimResetFrame   = {40};
                 inputFramCounter    = {0};
                 RA_UI::updateLable(gameStateLblID, "", WHITE, 100, true, Vector2 {});
+                iColor[0] = currentPlayer->rectColor.r;
+                iColor[1] = currentPlayer->rectColor.g;
+                iColor[2] = currentPlayer->rectColor.b;
             }
             RA_UI::updateLable(fpsLblID,
                                TextFormat("FPS: %d", GetFPS()),
@@ -1566,13 +1594,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                false,
                                Vector2 {50.f, 40.f});
 
-            RA_UI::updateLable(turnLblID,
-                               "Turn",
-                               currentPlayer->rectColor,
-                               fontSize,
-                               (currentState == GameState::win ||
-                                currentState == GameState::tie),
-                               Vector2 {70.f, 350.f});
+            // RA_UI::updateLable(turnLblID,
+            //                    "Turn",
+            //                    currentPlayer->rectColor,
+            //                    fontSize,
+            //                    (currentState == GameState::win ||
+            //                     currentState == GameState::tie),
+            //                    Vector2 {70.f, 350.f});
         }
         // draw game loop
         {
@@ -1581,19 +1609,20 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             BeginMode2D(camera);
 
             {
-                // draw backgournd shader
-                BeginShaderMode(backgroundShader);
+                BeginTextureMode(backgourndRenderTexture);
                 {
-                    DrawRectangleRec({.x      = 0,
-                                      .y      = 0,
-                                      .width  = gWidth / 1.f,
-                                      .height = gHeight / 1.f},
-
-                                     WHITE);
+                    ClearBackground(BLANK);
+                    {
+                        BeginShaderMode(backgroundShader);
+                        DrawTexture(tempTexture2, 0, 0, WHITE);
+                        EndShaderMode();
+                    }
                 }
-                EndShaderMode();
-                // draw background grid
+                EndTextureMode();
+                // draw backgournd shader
+                DrawTextureEx(backgourndRenderTexture.texture, {}, 0.f, 2.f, WHITE);
             }
+            // draw background grid
             DrawTexturePro(gridTexture,
                            Rectangle {0, 0, gridinfo.rect.width, gridinfo.rect.height},
                            gridinfo.rect,
