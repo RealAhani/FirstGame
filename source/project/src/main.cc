@@ -1,5 +1,3 @@
-#include "config.hh"
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1222,17 +1220,26 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
 
     // init
-    SetConfigFlags(FLAG_FULLSCREEN_MODE | FLAG_BORDERLESS_WINDOWED_MODE |
-                   FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_TOPMOST |
+                   FLAG_WINDOW_RESIZABLE);
+
     InitWindow(0, 0, "XOXO");
 
-    // SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI |
-    // FLAG_VSYNC_HINT); InitWindow(1200, 800, "XOXO");
-
-    gHeight = GetScreenHeight();
-    gWidth  = GetScreenWidth();
-    // auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(0);
+    gHeight = GetMonitorHeight(GetCurrentMonitor());
+    gWidth  = GetMonitorWidth(GetCurrentMonitor());
+    if (gWidth < 1920 || gHeight < 1080)
+    {
+        gHeight = GetScreenHeight();
+        gWidth  = GetScreenWidth();
+    }
+    SetWindowSize(gWidth, gHeight);
+    SetConfigFlags(FLAG_WINDOW_UNFOCUSED);
+    SetWindowFocused();
+    auto const fps = GetMonitorRefreshRate(0);
+    ToggleFullscreen();
+    ToggleBorderlessWindowed();
+    SetTargetFPS(fps);
+    SetWindowFocused();
 
     // clang-format off
     auto const [font,fontSize] = RA_Font::initFont(
