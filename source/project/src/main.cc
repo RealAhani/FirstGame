@@ -1232,7 +1232,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     gHeight = GetScreenHeight();
     gWidth  = GetScreenWidth();
     // auto const fps    = GetMonitorRefreshRate(0);
-    SetTargetFPS(60);
+    SetTargetFPS(0);
 
     // clang-format off
     auto const [font,fontSize] = RA_Font::initFont(
@@ -1274,6 +1274,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Texture2D const gridTexture {
         RA_Util::genGridTexture(gridinfo, 5.f, WHITE, Color {0, 0, 0, 0})};
 
+    // touched rects
     std::vector<ColoredRect> rects;
     rects.reserve(row * column);
     // indexes of rects that caus win
@@ -1383,6 +1384,20 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetShaderValue(backgroundShader, timeLocBackground, &iTime, SHADER_UNIFORM_FLOAT);
     SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
 
+    // Circular Cell Shader
+    Shader const cellShader = LoadShader(nullptr,
+                                         RA_Global::pathToFile("CircleCell.fs"sv,
+                                                               RA_Global::EFileType::Shader)
+                                             .c_str());
+
+    i32 const resLocCell   = GetShaderLocation(cellShader, "iRes");
+    i32 const timeLocCell  = GetShaderLocation(cellShader, "iTime");
+    i32 const colorLocCell = GetShaderLocation(cellShader, "iColor");
+
+    SetShaderValue(cellShader, resLocCell, iRes, SHADER_UNIFORM_VEC2);
+    SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(cellShader, colorLocCell, iColor, SHADER_UNIFORM_VEC3);
+
 
     BeginTextureMode(particleRenderTexture);
     {
@@ -1436,6 +1451,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                            &iTime,
                            SHADER_UNIFORM_FLOAT);
             SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
+            SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(cellShader, colorLocCell, iColor, SHADER_UNIFORM_VEC3);
 
             // box2d Update world state (box2d-related)
             b2World_Step(worldID, timeStep, subStepCount);
@@ -1604,7 +1621,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // draw game loop
         {
-            ClearBackground(RA_Global::gray);
+            ClearBackground(BLANK);
             BeginDrawing();
             BeginMode2D(camera);
 
@@ -1613,9 +1630,36 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 {
                     ClearBackground(BLANK);
                     {
-                        BeginShaderMode(backgroundShader);
-                        DrawTexture(tempTexture2, 0, 0, WHITE);
-                        EndShaderMode();
+                        // writing background shader to render Target
+                        {
+                            BeginShaderMode(backgroundShader);
+                            DrawTexture(tempTexture2, 0, 0, WHITE);
+                            EndShaderMode();
+                        }
+                        // writing cell shader to same render target
+                        {
+                            BeginShaderMode(cellShader);
+                            for (auto const & rect : rects)
+                            {
+                                DrawTexturePro(tempTexture2,
+                                               {.x      = 0.f,
+                                                .y      = 0.f,
+                                                .width  = gWidth * .5f,
+                                                .height = gHeight * .5f},
+                                               {.x = (rect.rect.x * .5f) -
+                                                     (rect.rect.width * 0.25f),
+                                                .y = (gHeight * .5f) -
+                                                     ((rect.rect.y * .5f) -
+                                                      (rect.rect.height * .25f)) -
+                                                     (rect.rect.height),
+                                                .width  = rect.rect.width,
+                                                .height = rect.rect.height},
+                                               {},
+                                               0.f,
+                                               RED);
+                            }
+                            EndShaderMode();
+                        }
                     }
                 }
                 EndTextureMode();
@@ -1629,11 +1673,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                            Vector2 {},
                            0.f,
                            WHITE);
+
             // touched rect buffer drawing
-            for (auto const & rect : rects)
-            {
-                DrawRectangleRec(rect.rect, rect.color);
-            }
+            // for (auto const & rect : rects)
+            // {
+            //     DrawRectangleRec(rect.rect, rect.color);
+            // }
 
             // state specific drawing animation and etc ...
             switch (currentState)
