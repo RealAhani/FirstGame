@@ -140,7 +140,7 @@
                 "HAS_PCH": "ON",
                 "HAS_TEST": "OFF",
                 "HAS_UNITY_BUILD": "ON",
-                "HAS_PACKAGE": "ON"
+                "HAS_PACKAGE": "OFF"
             },
             "vendor": {
                 "microsoft.com/VisualStudioSettings/CMake/1.0": {
@@ -223,7 +223,7 @@
                 "HAS_PCH": "ON",
                 "HAS_TEST": "OFF",
                 "HAS_UNITY_BUILD": "ON",
-                "HAS_PACKAGE": "ON"
+                "HAS_PACKAGE": "OFF"
             }
         },
         {

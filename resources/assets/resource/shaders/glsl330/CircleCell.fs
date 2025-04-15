@@ -7,7 +7,6 @@ in vec4 fragColor;
 // Input uniform values
 uniform vec2  iRes;
 uniform float iTime;
-uniform vec3  iColor;
 
 out vec4 finalColor;
 

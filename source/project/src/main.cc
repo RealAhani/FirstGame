@@ -1008,6 +1008,7 @@ struct ColoredRect
 {
     Rectangle rect;
     Color     color;
+    u8        id;
     ColoredRect()  = default;
     ~ColoredRect() = default;
     auto operator=(ColoredRect const & rhs) -> ColoredRect &
@@ -1016,6 +1017,7 @@ struct ColoredRect
             return *this;
         rect  = rhs.rect;
         color = rhs.color;
+        id    = rhs.id;
         return *this;
     }
     [[maybe_unused]]
@@ -1367,7 +1369,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // particle shader and render texture init
     Shader const particleShader = LoadShader(nullptr,
-                                             RA_Global::pathToFile("test.fs"sv,
+                                             RA_Global::pathToFile("particle.fs"sv,
                                                                    RA_Global::EFileType::Shader)
                                                  .c_str());
     i32 const    resLocParticle = GetShaderLocation(particleShader, "iRes");
@@ -1379,32 +1381,36 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                      cast(f32, currentPlayer->rectColor.b)};
 
     Shader const
-        backgroundShader = LoadShader(nullptr,
+              backgroundShader  = LoadShader(nullptr,
                                       RA_Global::pathToFile("background.fs"sv,
                                                             RA_Global::EFileType::Shader)
                                           .c_str());
-
     i32 const resLocBackground  = GetShaderLocation(backgroundShader, "iRes");
     i32 const timeLocBackground = GetShaderLocation(backgroundShader, "iTime");
     i32 const colorLoc          = GetShaderLocation(backgroundShader, "iColor");
-
     SetShaderValue(backgroundShader, resLocBackground, iRes, SHADER_UNIFORM_VEC2);
     SetShaderValue(backgroundShader, timeLocBackground, &iTime, SHADER_UNIFORM_FLOAT);
     SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
 
     // Circular Cell Shader
-    Shader const cellShader = LoadShader(nullptr,
+    Shader const cellShader  = LoadShader(nullptr,
                                          RA_Global::pathToFile("CircleCell.fs"sv,
                                                                RA_Global::EFileType::Shader)
                                              .c_str());
-
-    i32 const resLocCell   = GetShaderLocation(cellShader, "iRes");
-    i32 const timeLocCell  = GetShaderLocation(cellShader, "iTime");
-    i32 const colorLocCell = GetShaderLocation(cellShader, "iColor");
-
+    i32 const    resLocCell  = GetShaderLocation(cellShader, "iRes");
+    i32 const    timeLocCell = GetShaderLocation(cellShader, "iTime");
     SetShaderValue(cellShader, resLocCell, iRes, SHADER_UNIFORM_VEC2);
     SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(cellShader, colorLocCell, iColor, SHADER_UNIFORM_VEC3);
+
+    // Cross Cell Shader
+    Shader const crossShader      = LoadShader(nullptr,
+                                          RA_Global::pathToFile("CrossCell.fs"sv,
+                                                                RA_Global::EFileType::Shader)
+                                              .c_str());
+    i32 const    resLocCrossCell  = GetShaderLocation(crossShader, "iRes");
+    i32 const    timeLocCrossCell = GetShaderLocation(crossShader, "iTime");
+    SetShaderValue(crossShader, resLocCrossCell, iRes, SHADER_UNIFORM_VEC2);
+    SetShaderValue(crossShader, timeLocCrossCell, &iTime, SHADER_UNIFORM_FLOAT);
 
 
     BeginTextureMode(particleRenderTexture);
@@ -1453,14 +1459,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         // update
         {
             // update shader loc address
-            iTime = GetTime();
+            float const tempTime = GetTime();
+            float const period = 160.0f;  // full up+down cycle = 80 up + 80 down
+            iTime = 80.0f - fabs(fmod(tempTime, period) - 80.0f);
+
             SetShaderValue(backgroundShader,
                            timeLocBackground,
                            &iTime,
                            SHADER_UNIFORM_FLOAT);
             SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
+
             SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(cellShader, colorLocCell, iColor, SHADER_UNIFORM_VEC3);
+
+            SetShaderValue(crossShader, timeLocCrossCell, &iTime, SHADER_UNIFORM_FLOAT);
 
             // box2d Update world state (box2d-related)
             b2World_Step(worldID, timeStep, subStepCount);
@@ -1486,6 +1497,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                                                     55);
                         // adjust color based on current player
                         newRect.color = currentPlayer->rectColor;
+                        newRect.id    = currentPlayer->id;
                         // if this new rect does not exist in buffer add it to buffer
                         if (std::ranges::find(std::cbegin(rects),
                                               std::cend(rects),
@@ -1646,27 +1658,51 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                         }
                         // writing cell shader to same render target
                         {
-                            BeginShaderMode(cellShader);
                             for (auto const & rect : rects)
                             {
-                                DrawTexturePro(tempTexture2,
-                                               {.x      = 0.f,
-                                                .y      = 0.f,
-                                                .width  = gWidth * .5f,
-                                                .height = gHeight * .5f},
-                                               {.x = (rect.rect.x * .5f) -
-                                                     (rect.rect.width * 0.25f),
-                                                .y = (gHeight * .5f) -
-                                                     ((rect.rect.y * .5f) -
-                                                      (rect.rect.height * .25f)) -
-                                                     (rect.rect.height),
-                                                .width  = rect.rect.width,
-                                                .height = rect.rect.height},
-                                               {},
-                                               0.f,
-                                               RED);
+                                if (rect.id == p1.id)
+                                {
+                                    BeginShaderMode(cellShader);
+                                    DrawTexturePro(tempTexture2,
+                                                   {.x      = 0.f,
+                                                    .y      = 0.f,
+                                                    .width  = gWidth * .5f,
+                                                    .height = gHeight * .5f},
+                                                   {.x = (rect.rect.x * .5f) -
+                                                         (rect.rect.width * 0.25f),
+                                                    .y = (gHeight * .5f) -
+                                                         ((rect.rect.y * .5f) -
+                                                          (rect.rect.height * .25f)) -
+                                                         (rect.rect.height),
+                                                    .width  = rect.rect.width,
+                                                    .height = rect.rect.height},
+                                                   {},
+                                                   0.f,
+                                                   WHITE);
+                                    EndShaderMode();
+                                }
+                                else  // its p2
+                                {
+                                    BeginShaderMode(crossShader);
+                                    DrawTexturePro(tempTexture2,
+                                                   {.x      = 0.f,
+                                                    .y      = 0.f,
+                                                    .width  = gWidth * .5f,
+                                                    .height = gHeight * .5f},
+                                                   {.x = (rect.rect.x * .5f) -
+                                                         (rect.rect.width * 0.25f),
+                                                    .y = (gHeight * .5f) -
+                                                         ((rect.rect.y * .5f) -
+                                                          (rect.rect.height * .25f)) -
+                                                         (rect.rect.height),
+                                                    .width  = rect.rect.width,
+                                                    .height = rect.rect.height},
+                                                   {},
+                                                   0.f,
+                                                   WHITE);
+                                    EndShaderMode();
+                                }
                             }
-                            EndShaderMode();
                         }
                     }
                 }
@@ -1681,12 +1717,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                            Vector2 {},
                            0.f,
                            WHITE);
-
-            // touched rect buffer drawing
-            // for (auto const & rect : rects)
-            // {
-            //     DrawRectangleRec(rect.rect, rect.color);
-            // }
 
             // state specific drawing animation and etc ...
             switch (currentState)
