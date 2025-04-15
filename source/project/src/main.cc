@@ -1302,18 +1302,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // UI elements init
     // reset btn ui
-    i32 const resetBtnID = RA_UI::makeRoundButton(Rectangle {.x = 50.f,
-                                                             .y = gridinfo.rect.y,
-                                                             .width  = 300.f,
-                                                             .height = 150.f},
-                                                  0.5f,
-                                                  5.f,
-                                                  WHITE,
-                                                  "Reset",
-                                                  WHITE,
-                                                  50,
-                                                  false,
-                                                  defaultFontID);
+    i32 const resetBtnID = RA_UI::
+        makeRoundButton(Rectangle {.x = 50.f,
+                                   .y = gridinfo.rect.y,
+                                   .width = (100 * 300.f / gWidth) * 12.f,  // TODO: make this formula hide inside abstraction for all ui elemnt (btn ,lbl,etc ...)
+                                   .height = (100 * 150.f / gHeight) * 7.f},
+                        0.5f,
+                        5.f,
+                        WHITE,
+                        "Reset",
+                        WHITE,
+                        (100 * 50 / fontSize),
+                        false,
+                        defaultFontID);
     // resulation lable
     RA_UI::makeLable(TextFormat("resulation : %d x %d", gWidth, gHeight),
                      WHITE,

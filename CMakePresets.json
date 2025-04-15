@@ -255,10 +255,10 @@
                 "HAS_PACKAGE": "OFF",
                 "PLATFORM": "Android",
                 "ANDROID_ABI": "arm64-v8a",
-                "APP_LABEL": "TicTocToe",
+                "APP_LABEL": "XOXO",
                 "APP_PRODUCT_NAME": "app",
                 "APP_KEYSTORE_PASS": "password",
-                "ANDROID_PLATFORM": "34",
+                "ANDROID_PLATFORM": "40",
                 "APP_ORIENTATION": "landscape",
                 "BUILD_APK": "OFF"
             }
@@ -292,10 +292,10 @@
                 "HAS_PACKAGE": "OFF",
                 "PLATFORM": "Android",
                 "ANDROID_ABI": "armeabi-v7a",
-                "APP_LABEL": "TicTocToe",
+                "APP_LABEL": "XOXO",
                 "APP_PRODUCT_NAME": "app",
                 "APP_KEYSTORE_PASS": "password",
-                "ANDROID_PLATFORM": "34",
+                "ANDROID_PLATFORM": "40",
                 "APP_ORIENTATION": "landscape",
                 "BUILD_APK": "OFF"
             }
@@ -329,10 +329,10 @@
                 "HAS_PACKAGE": "OFF",
                 "PLATFORM": "Android",
                 "ANDROID_ABI": "x86_64",
-                "APP_LABEL": "TicTocToe",
+                "APP_LABEL": "XOXO",
                 "APP_PRODUCT_NAME": "app",
                 "APP_KEYSTORE_PASS": "password",
-                "ANDROID_PLATFORM": "34",
+                "ANDROID_PLATFORM": "40",
                 "APP_ORIENTATION": "landscape",
                 "BUILD_APK": "OFF"
             }
@@ -366,10 +366,10 @@
                 "HAS_PACKAGE": "OFF",
                 "PLATFORM": "Android",
                 "ANDROID_ABI": "x86",
-                "APP_LABEL": "TicTocToe",
+                "APP_LABEL": "XOXO",
                 "APP_PRODUCT_NAME": "app",
                 "APP_KEYSTORE_PASS": "password",
-                "ANDROID_PLATFORM": "34",
+                "ANDROID_PLATFORM": "40",
                 "APP_ORIENTATION": "landscape",
                 "BUILD_APK": "OFF"
             }
@@ -403,10 +403,10 @@
                 "HAS_PACKAGE": "OFF",
                 "PLATFORM": "Android",
                 "ANDROID_ABI": "x86",
-                "APP_LABEL": "TicTocToe",
+                "APP_LABEL": "XOXO",
                 "APP_PRODUCT_NAME": "app",
                 "APP_KEYSTORE_PASS": "password",
-                "ANDROID_PLATFORM": "34",
+                "ANDROID_PLATFORM": "40",
                 "APP_ORIENTATION": "landscape",
                 "BUILD_APK": "ON"
             }
