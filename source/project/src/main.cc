@@ -1460,8 +1460,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {
             // update shader loc address
             float const tempTime = GetTime();
-            float const period = 160.0f;  // full up+down cycle = 80 up + 80 down
-            iTime = 80.0f - fabs(fmod(tempTime, period) - 80.0f);
+            float const period = 20.0f;  // full up+down cycle = 80 up + 80 down
+            iTime              = 10.0f - fabs(fmod(tempTime, period) - 10.0f);
+
+            std::cout << iTime << '\n';
 
             SetShaderValue(backgroundShader,
                            timeLocBackground,
