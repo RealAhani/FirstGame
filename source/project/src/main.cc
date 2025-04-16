@@ -1,4 +1,3 @@
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1378,8 +1377,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                     1,
                                     PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     RenderTexture2D const
-        backgourndRenderTexture = LoadRenderTexture(cast(u16, gWidth * .5f),
-                                                    cast(u16, gHeight * .5f));
+        mainRenderTexture = LoadRenderTexture(cast(u16, gWidth * .5f),
+                                              cast(u16, gHeight * .5f));
 
 
     // particle shader and render texture init
@@ -1662,26 +1661,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             BeginMode2D(camera);
 
             {
-                BeginTextureMode(backgourndRenderTexture);
+                BeginTextureMode(mainRenderTexture);
                 {
                     ClearBackground(BLANK);
                     {
+
                         // writing background shader to render Target
                         {
                             BeginShaderMode(backgroundShader);
                             DrawTexture(shapeTexture, 0, 0, WHITE);
                             EndShaderMode();
-                        }
-                        {
-                            // draw grid
-                            DrawTextureEx(gridTexture,
-                                          {gridinfo.rect.x -
-                                               (gridinfo.rect.width * .25f),
-                                           gridinfo.rect.y -
-                                               (gridinfo.rect.height * 0.0625f)}, /* its (0.25f*0.25f)*/
-                                          0.f,
-                                          5.f, /*its aloso multiply by 2 when drawing on screen 5*2=10*/
-                                          WHITE);
                         }
                         // writing cell shader to same render target
                         {
@@ -1731,11 +1720,22 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 }
                             }
                         }
+                        {
+                            // draw grid
+                            DrawTextureEx(gridTexture,
+                                          {gridinfo.rect.x -
+                                               (gridinfo.rect.width * .25f),
+                                           gridinfo.rect.y -
+                                               (gridinfo.rect.height * 0.0625f)}, /* its (0.25f*0.25f)*/
+                                          0.f,
+                                          5.f, /*its aloso multiply by 2 when drawing on screen 5*2=10*/
+                                          WHITE);
+                        }
                     }
                 }
                 EndTextureMode();
-                // draw backgournd shader
-                DrawTextureEx(backgourndRenderTexture.texture, {}, 0.f, 2.f, WHITE);
+                // draw render shader
+                DrawTextureEx(mainRenderTexture.texture, {}, 0.f, 2.f, WHITE);
             }
 
 
@@ -1820,12 +1820,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     }
     // clean-up
     b2DestroyWorld(worldID);
+
     UnloadTexture(gridTexture);
     UnloadTexture(shapeTexture);
+
     UnloadRenderTexture(particleRenderTexture);
-    UnloadRenderTexture(backgourndRenderTexture);
+    UnloadRenderTexture(mainRenderTexture);
+
     UnloadFont(font);
+
     UnloadShader(backgroundShader);
+    UnloadShader(cellShader);
+    UnloadShader(crossShader);
+
     CloseWindow();
     return 0;
 }
