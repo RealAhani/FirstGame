@@ -15,7 +15,7 @@ float invert(float a)
 }
 
 // clang-format off
-const float Radious = 1.9;
+const float Radious = 2.0;
 // clang-format on
 
 void main()
@@ -23,8 +23,9 @@ void main()
     vec2 uv = fragTexCoord.xy;
     uv -= 0.5;
 
-    float R = length(uv * Radious);
-    R *= smoothstep(0.1, 1., R * 2.5 * Radious);
+    float R           = length(uv * Radious);
+    float innerRadios = 0.11;
+    R *= smoothstep(0.1, innerRadios, R * Radious);
 
     R = invert(R);
 

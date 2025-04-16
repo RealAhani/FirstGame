@@ -1224,7 +1224,7 @@ auto drawParticles(std::vector<Particle> const & particles,
         else
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
-            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 0.4f, color);
+            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 3.f, color);
         }
     }
 }
@@ -1366,7 +1366,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // shader and render texture setup
 
     // particle render target and texture
-    u8 const        size {255};
+    u8 const        size {64};
     Texture2D const particleTexture =
         {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     RenderTexture2D const particleRenderTexture = LoadRenderTexture(size, size);
