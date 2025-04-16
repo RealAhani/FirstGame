@@ -1,3 +1,4 @@
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -335,35 +336,49 @@ auto drawGrid(GridInfo const & grid, Color const lineColor = WHITE) noexcept -> 
 */
 [[nodiscard]] [[maybe_unused]]
 auto genGridTexture(GridInfo const & grid,
-                    f32 const        lineThickness = 10.f,
-                    Color const      lineColor     = WHITE,
+                    f32 const        resulationScale = 1.f,
+                    f32 const        lineThickness   = 10.f,
+                    Color const      lineColor       = WHITE,
                     Color const backgroundColor = BLACK) noexcept -> Texture2D
 {
-    Image img = GenImageColor(cast(i32, grid.rect.width),
-                              cast(i32, grid.rect.height),
+    Image img = GenImageColor(cast(i32, grid.rect.width * resulationScale),
+                              cast(i32, grid.rect.height * resulationScale),
                               backgroundColor);
     // draw in between lines based on col and row
     // drawing row lines
-    f64 yOffset {cast(f64, lineThickness) * 0.5};
+    f64 yOffset {cast(f64, lineThickness) * 0.5 * resulationScale};
     for (u16 i {}; i <= grid.rowCount; ++i)
     {
         Vector2 const v0 {0.f, cast(f32, yOffset)};
-        Vector2 const v1 {grid.rect.width, cast(f32, yOffset)};
+        Vector2 const v1 {grid.rect.width * resulationScale, cast(f32, yOffset)};
         if (i != 0 && i != grid.rowCount)
-            ImageDrawLineEx(&img, v0, v1, cast(i32, lineThickness), lineColor);
-        yOffset += cast(f64, grid.cellSize.y - (lineThickness * 0.5f));
+            ImageDrawLineEx(&img,
+                            v0,
+                            v1,
+                            cast(i32, lineThickness * resulationScale),
+                            lineColor);
+        yOffset += cast(f64,
+                        (grid.cellSize.y - (lineThickness * 0.5f)) * resulationScale);
     }
     // draw column lines
-    f64 xOffset {cast(f64, lineThickness) * 0.5};
+    f64 xOffset {cast(f64, lineThickness) * 0.5 * resulationScale};
     for (u16 i {}; i <= grid.columnCount; ++i)
     {
         Vector2 const v0 {cast(f32, xOffset), 0.f};
-        Vector2 const v1 {cast(f32, xOffset), grid.rect.height};
+        Vector2 const v1 {cast(f32, xOffset), grid.rect.height * resulationScale};
         if (i != 0 && i != grid.rowCount)
-            ImageDrawLineEx(&img, v0, v1, cast(i32, lineThickness), lineColor);
-        xOffset += cast(f64, grid.cellSize.x - (lineThickness * 0.5f));
+            ImageDrawLineEx(&img,
+                            v0,
+                            v1,
+                            cast(i32, lineThickness * resulationScale),
+                            lineColor);
+        xOffset += cast(f64,
+                        (grid.cellSize.x - (lineThickness * 0.5f)) * resulationScale);
     }
     Texture2D gridTexture = LoadTextureFromImage(img);
+    // #if defined(DEBUG)
+    // ExportImage(img, "myimg.png");
+    // #endif
     UnloadImage(img);
     return gridTexture;
 }
@@ -1281,7 +1296,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                        row);
 
     Texture2D const gridTexture {
-        RA_Util::genGridTexture(gridinfo, 5.f, WHITE, Color {0, 0, 0, 0})};
+        RA_Util::genGridTexture(gridinfo, .1f, 5.0f, WHITE, Color {0, 0, 0, 0})};
 
     // touched rects
     std::vector<ColoredRect> rects;
@@ -1307,8 +1322,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     i32 const resetBtnID = RA_UI::
         makeRoundButton(Rectangle {.x = 50.f,
                                    .y = gridinfo.rect.y,
-                                   .width = (100 * 300.f / gWidth) * 12.f,  // TODO: make this formula hide inside abstraction for all ui elemnt (btn ,lbl,etc ...)
-                                   .height = (100 * 150.f / gHeight) * 7.f},
+                                   .width = (100 * 400.f / gWidth) * 12.f,  // TODO: make this formula hide inside abstraction for all ui elemnt (btn ,lbl,etc ...)
+                                   .height = (100 * 170.f / gHeight) * 7.f},
                         0.5f,
                         5.f,
                         WHITE,
@@ -1352,12 +1367,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // particle render target and texture
     u8 const        size {255};
-    Texture2D const tempTexture =
+    Texture2D const particleTexture =
         {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     RenderTexture2D const particleRenderTexture = LoadRenderTexture(size, size);
 
     // background texture and render texture setup
-    Texture2D const tempTexture2 = {rlGetTextureIdDefault(),
+    Texture2D const shapeTexture = {rlGetTextureIdDefault(),
                                     cast(u16, gWidth * .5f),
                                     cast(u16, gHeight * .5f),
                                     1,
@@ -1419,13 +1434,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {
             {
                 BeginShaderMode(particleShader);
-                DrawTexture(tempTexture, 0, 0, WHITE);
+                DrawTexture(particleTexture, 0, 0, WHITE);
                 EndShaderMode();
             }
         }
     }
     EndTextureMode();
-
+    UnloadTexture(particleTexture);
     UnloadShader(particleShader);
 
 
@@ -1462,8 +1477,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             float const tempTime = GetTime();
             float const period = 20.0f;  // full up+down cycle = 80 up + 80 down
             iTime              = 10.0f - fabs(fmod(tempTime, period) - 10.0f);
-
-            std::cout << iTime << '\n';
+            // std::cout << iTime << '\n';
 
             SetShaderValue(backgroundShader,
                            timeLocBackground,
@@ -1655,8 +1669,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                         // writing background shader to render Target
                         {
                             BeginShaderMode(backgroundShader);
-                            DrawTexture(tempTexture2, 0, 0, WHITE);
+                            DrawTexture(shapeTexture, 0, 0, WHITE);
                             EndShaderMode();
+                        }
+                        {
+                            // draw grid
+                            DrawTextureEx(gridTexture,
+                                          {gridinfo.rect.x -
+                                               (gridinfo.rect.width * .25f),
+                                           gridinfo.rect.y -
+                                               (gridinfo.rect.height * 0.0625f)}, /* its (0.25f*0.25f)*/
+                                          0.f,
+                                          5.f, /*its aloso multiply by 2 when drawing on screen 5*2=10*/
+                                          WHITE);
                         }
                         // writing cell shader to same render target
                         {
@@ -1665,7 +1690,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 if (rect.id == p1.id)
                                 {
                                     BeginShaderMode(cellShader);
-                                    DrawTexturePro(tempTexture2,
+                                    DrawTexturePro(shapeTexture,
                                                    {.x      = 0.f,
                                                     .y      = 0.f,
                                                     .width  = gWidth * .5f,
@@ -1686,7 +1711,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 else  // its p2
                                 {
                                     BeginShaderMode(crossShader);
-                                    DrawTexturePro(tempTexture2,
+                                    DrawTexturePro(shapeTexture,
                                                    {.x      = 0.f,
                                                     .y      = 0.f,
                                                     .width  = gWidth * .5f,
@@ -1712,13 +1737,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 // draw backgournd shader
                 DrawTextureEx(backgourndRenderTexture.texture, {}, 0.f, 2.f, WHITE);
             }
-            // draw background grid
-            DrawTexturePro(gridTexture,
-                           Rectangle {0, 0, gridinfo.rect.width, gridinfo.rect.height},
-                           gridinfo.rect,
-                           Vector2 {},
-                           0.f,
-                           WHITE);
+
 
             // state specific drawing animation and etc ...
             switch (currentState)
@@ -1802,7 +1821,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
     b2DestroyWorld(worldID);
     UnloadTexture(gridTexture);
+    UnloadTexture(shapeTexture);
     UnloadRenderTexture(particleRenderTexture);
+    UnloadRenderTexture(backgourndRenderTexture);
     UnloadFont(font);
     UnloadShader(backgroundShader);
     CloseWindow();

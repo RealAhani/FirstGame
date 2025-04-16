@@ -418,20 +418,21 @@
             "displayName": "Windows Clang Safe",
             "configurePreset": "win-clang-safe",
             "configuration": "Debug",
-            "jobs": 12
+            "jobs": 16
         },
         {
             "name": "win-clang-test",
             "displayName": "Windows Clang Test",
             "configurePreset": "win-clang-test",
-            "configuration": "Debug"
+            "configuration": "Debug",
+            "jobs": 16
         },
         {
             "name": "win-clang-release",
             "displayName": "Windows Clang Release",
             "configurePreset": "win-clang-release",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 16
         },
         {
             "name": "unix-clang-safe",
