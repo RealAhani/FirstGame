@@ -59,7 +59,7 @@ option(WERROR_FLAG OFF "Warning as error on/off")
 # -Wold-style-cast # warn for c-style casts
 # -Wpedantic # warn if non-standard C++ is used
 # ${OS_ANDROID}:-Wno-main
-set(DBG_FLAGS "-DDEBUG;-Wall;-Wextra;-Wpedantic;-Wshadow;-Wconversion;-Wnon-virtual-dtor;-Wcast-align;-Wunused;-Woverloaded-virtual;-Wsign-conversion;-Wdouble-promotion;-Wformat=2;-Wimplicit-fallthrough;-Wsuggest-override;-Wnull-dereference;-Wold-style-cast;-Wpedantic"
+set(DBG_FLAGS "-DDEBUG;-Wall;-Wextra;-Wpedantic;-Wshadow;-Wconversion;-Wnon-virtual-dtor;-Wcast-align;-Wunused;-Woverloaded-virtual;-Wsign-conversion;-Wdouble-promotion;-Wformat=2;-Wimplicit-fallthrough;-Wsuggest-override;-Wnull-dereference;-Wold-style-cast"
   CACHE STRING "debug flags")
 
 # if werror is on add it to debug flags
@@ -123,6 +123,8 @@ set(LINK_VARS "raylib;box2d" CACHE STRING "the library linking variables")
 
 if(${PLATFORM} STREQUAL "Android")
   list(APPEND LINK_VARS "native_app_glue;log;android;EGL;GLESV2;OpenSLES")
+  list(APPEND DBG_FLAGS "-fPIC")
+  list(APPEND REL_FLAGS "-fPIC")
 endif(${PLATFORM} STREQUAL "Android")
 
 # ################### Packaging for release

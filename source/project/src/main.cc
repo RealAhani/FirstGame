@@ -543,19 +543,61 @@ auto index2RectOnGrid(u16 const index, GridInfo const & grid) noexcept -> Rectan
 }
 
 [[maybe_unused]]
-auto moveTowards(Vector2 & p1, Vector2 const & p2, f32 step) noexcept -> void
+auto moveTowards(Vector2 & p1, Vector2 const & p2, u16 const pixelPerFrame) noexcept
+    -> void
 {
     f32 const dx     = p2.x - p1.x;
     f32 const dy     = p2.y - p1.y;
     f32 const length = std::sqrt((dx * dx) + (dy * dy));
 
-    if (length > 0.f && step < length)
+    if (length > 0.f && (pixelPerFrame * GetFrameTime()) < length)
     {  // Avoid overshooting
-        p1.x += (dx / length) * step;
-        p1.y += (dy / length) * step;
+        p1.x += (dx / length) * pixelPerFrame * GetFrameTime();
+        p1.y += (dy / length) * pixelPerFrame * GetFrameTime();
     }
     else
         p1 = p2;  // Snap to target if within step size
+}
+
+auto drawGoodLine(Vector2 const & start,
+                  Vector2 const & end,
+                  u16 const       lineThickness,
+                  Color const &   color) noexcept -> void
+{
+    f32 const rotation      = Vector2LineAngle(start, end) * -RAD2DEG;
+    f32 const currentLength = Vector2Length(start - end);
+    f32 const currentHeight = lineThickness;
+    f32       currentX      = 0.f;
+    f32       currentY      = 0.f;
+    u16 const tempRotation  = cast(u16, rotation);
+
+    if (tempRotation >= 135)
+    {
+        currentX = start.x;
+        currentY = start.y + (currentHeight * .5f);
+    }
+    else if (tempRotation == 90)
+    {
+        currentX = start.x + (currentHeight * .5f);
+        currentY = start.y;
+    }
+    else if (tempRotation >= 40)
+    {
+        currentX = start.x;
+        currentY = start.y;
+    }
+    else  // its for `0
+    {
+        currentX = start.x;
+        currentY = start.y - (currentHeight * .5f);
+    }
+    DrawRectanglePro({.x      = currentX,
+                      .y      = currentY,
+                      .width  = currentLength,
+                      .height = currentHeight},
+                     {},
+                     rotation,
+                     color);
 }
 }  // namespace RA_Util
 
@@ -1761,8 +1803,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                              color);
                     if (winUIFramCounter >= 50)
                     {
-                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 5);
-                        DrawLineEx(uIPointAnimationWin, circles[goal - 1], 10.f, color);
+                        RA_Util::moveTowards(uIPointAnimationWin, circles[0], 500.f);
+                        RA_Util::drawGoodLine(circles[goal - 1],
+                                              uIPointAnimationWin,
+                                              5,
+                                              color);
                     }
                     if (winUIFramCounter >= 55)
                     {
