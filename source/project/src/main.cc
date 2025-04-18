@@ -599,6 +599,13 @@ auto drawGoodLine(Vector2 const & start,
                      rotation,
                      color);
 }
+// TODO: need some adjustment for y limitation from boundries
+auto isClippingForRender(Vector2 const & pos, Rectangle const & boundry) noexcept
+    -> bool
+{
+    // Demorgan law
+    return (pos.y > boundry.height || pos.x > boundry.width || pos.x < boundry.x);
+}
 }  // namespace RA_Util
 
 namespace RA_Anim
@@ -1060,14 +1067,14 @@ auto getBtnRect(u32 const btnID) -> Rectangle
 }
 }  // namespace RA_UI
 
-struct ColoredRect
+struct PlayerShapeInfo
 {
     Rectangle rect;
     Color     color;
     u8        id;
-    ColoredRect()  = default;
-    ~ColoredRect() = default;
-    auto operator=(ColoredRect const & rhs) -> ColoredRect &
+    PlayerShapeInfo()  = default;
+    ~PlayerShapeInfo() = default;
+    auto operator=(PlayerShapeInfo const & rhs) -> PlayerShapeInfo &
     {
         if (this == &rhs)
             return *this;
@@ -1077,7 +1084,7 @@ struct ColoredRect
         return *this;
     }
     [[maybe_unused]]
-    auto operator==(ColoredRect const & rhs) const noexcept -> bool
+    auto operator==(PlayerShapeInfo const & rhs) const noexcept -> bool
     {
         return (rect.x == rhs.rect.x && rect.y == rhs.rect.y);
     }
@@ -1110,6 +1117,7 @@ Vector2                uIPointAnimationWin {0.f, 0.f};
 Vector2                mousePos {0.f, 0.f};
 GameState              currentState {GameState::none};
 RA_Util::GRandom const gRandom(-1200.f, 1500.f);
+RA_Util::GRandom const littleRandom(5.f, 15.f);
 // constexpr u16 const    fps {60};
 constexpr u8 const row    = 4;
 constexpr u8 const column = 4;
@@ -1213,13 +1221,6 @@ auto impulseParticle(Particle const & pr) noexcept -> void
                               true);
 }
 
-auto isClippingForRender(Vector2 const & pos, Rectangle const & boundry) noexcept
-    -> bool
-{
-    // Demorgan law
-    return (pos.y > boundry.height || pos.x > boundry.width || pos.x < boundry.x);
-}
-
 
 [[maybe_unused]]
 auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
@@ -1254,9 +1255,11 @@ auto drawParticles(std::vector<Particle> const & particles,
 
     for (auto const pr : particles)
     {
-        if (isClippingForRender(Vector2 {.x = (b2Body_GetPosition(pr.bodyID).x * -1),
-                                         .y = (b2Body_GetPosition(pr.bodyID).y * -1)},
-                                boundRect))
+        if (RA_Util::
+                isClippingForRender(Vector2 {.x = (b2Body_GetPosition(pr.bodyID).x * -1),
+                                             .y = (b2Body_GetPosition(pr.bodyID).y *
+                                                   -1)},
+                                    boundRect))
         {
             // b2Body_Disable(pr.bodyID);
             resetParticle(pr);
@@ -1265,7 +1268,11 @@ auto drawParticles(std::vector<Particle> const & particles,
         else
         {
             b2Vec2 const boxPos {b2Body_GetPosition(pr.bodyID)};
-            DrawTextureEx(texture, Vector2 {-boxPos.x, -boxPos.y}, 0.f, 3.f, color);
+            DrawTextureEx(texture,
+                          Vector2 {-boxPos.x, -boxPos.y},
+                          0.f,
+                          1.f * pr.rect.width / 10.f,
+                          color);
         }
     }
 }
@@ -1277,51 +1284,55 @@ auto drawParticles(std::vector<Particle> const & particles,
 auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
 
-    // init
+    // init window properties
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_TOPMOST |
-                   FLAG_WINDOW_RESIZABLE);
-
+                   FLAG_BORDERLESS_WINDOWED_MODE);
     InitWindow(0, 0, "XOXO");
 
+    // find out the screen resulation
     gHeight = GetMonitorHeight(GetCurrentMonitor());
     gWidth  = GetMonitorWidth(GetCurrentMonitor());
+    // this is not standard or 0 bc above function not worked properly
     if (gWidth < 1920 || gHeight < 1080)
-    {
+    {  // using diffrent aproche
         gHeight = GetScreenHeight();
         gWidth  = GetScreenWidth();
     }
     SetWindowSize(gWidth, gHeight);
-    SetConfigFlags(FLAG_WINDOW_UNFOCUSED);
-    SetWindowFocused();
+
     auto const fps = GetMonitorRefreshRate(0);
-    ToggleFullscreen();
-    ToggleBorderlessWindowed();
     SetTargetFPS(fps);
-    SetWindowFocused();
+    // toggle Full screen after the above setup
+    // bc if user has 2 monitor we want to run on focused screen
+    ToggleFullscreen();
 
     // clang-format off
     auto const [font,fontSize] = RA_Font::initFont(
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
         100,
         TEXTURE_FILTER_BILINEAR);
+    // get the font id that is in the buffer font we can use this id to get the font data
+    // we need this id for ui element creation
     auto const defaultFontID=        RA_UI::getFontID(font);
     // clang-format on
 
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
-    b2WorldId const       worldID = RA_Particle::initWorldOfBox2d();
-    constexpr f32 const   timeStep {1.f / 60.f};  // 30HZ
-    constexpr u8 const    subStepCount {3};
+    b2WorldId const     worldID = RA_Particle::initWorldOfBox2d();
+    constexpr f32 const timeStep {1.f / (100)};
+    i32 const           subStepCount {(fps / 2) / 5};  // for 60HZ monitor its 3
+    // init memory for particles
     std::vector<Particle> particles {};
     particles.reserve(1000);
     // create dynamic bodies
     for (u16 i {}; i < 1000; ++i)
     {
-        Particle pr {};
+        Particle  pr {};
+        f32 const size = littleRandom.getRandom();
         pr.rect.x      = gRandom.getRandom();
         pr.rect.y      = ((gHeight / 3.f) * -1);
-        pr.rect.height = 15;
-        pr.rect.width  = 15;
+        pr.rect.height = size;
+        pr.rect.width  = size;
         pr.bodyID      = RA_Particle::creatDynamicBody(pr, worldID);
         particles.emplace_back(pr);
     }
@@ -1340,7 +1351,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         RA_Util::genGridTexture(gridinfo, .1f, 5.0f, WHITE, Color {0, 0, 0, 0})};
 
     // touched rects
-    std::vector<ColoredRect> rects;
+    std::vector<PlayerShapeInfo> rects;
     rects.reserve(row * column);
     // indexes of rects that caus win
     std::array<u8, goal>      indexCausWin {};
@@ -1412,7 +1423,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {rlGetTextureIdDefault(), size, size, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
     RenderTexture2D const particleRenderTexture = LoadRenderTexture(size, size);
 
-    // background texture and render texture setup
+    // background(mainRenderTexture) and shapes texture and render texture setup
     Texture2D const shapeTexture = {rlGetTextureIdDefault(),
                                     cast(u16, gWidth * .5f),
                                     cast(u16, gHeight * .5f),
@@ -1432,6 +1443,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetShaderValue(particleShader, resLocParticle, iRes, SHADER_UNIFORM_VEC2);
 
     // background shader
+    // uniform icolor for shapes shader (cross and circle)
     f32 iColor[3] = {cast(f32, currentPlayer->rectColor.r),
                      cast(f32, currentPlayer->rectColor.g),
                      cast(f32, currentPlayer->rectColor.b)};
@@ -1449,14 +1461,14 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
 
     // Circular Cell Shader
-    Shader const cellShader  = LoadShader(nullptr,
-                                         RA_Global::pathToFile("CircleCell.fs"sv,
-                                                               RA_Global::EFileType::Shader)
-                                             .c_str());
-    i32 const    resLocCell  = GetShaderLocation(cellShader, "iRes");
-    i32 const    timeLocCell = GetShaderLocation(cellShader, "iTime");
-    SetShaderValue(cellShader, resLocCell, iRes, SHADER_UNIFORM_VEC2);
-    SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
+    Shader const circleShader = LoadShader(nullptr,
+                                           RA_Global::pathToFile("CircleCell.fs"sv,
+                                                                 RA_Global::EFileType::Shader)
+                                               .c_str());
+    i32 const    resLocCell   = GetShaderLocation(circleShader, "iRes");
+    i32 const    timeLocCell  = GetShaderLocation(circleShader, "iTime");
+    SetShaderValue(circleShader, resLocCell, iRes, SHADER_UNIFORM_VEC2);
+    SetShaderValue(circleShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
 
     // Cross Cell Shader
     Shader const crossShader      = LoadShader(nullptr,
@@ -1468,7 +1480,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetShaderValue(crossShader, resLocCrossCell, iRes, SHADER_UNIFORM_VEC2);
     SetShaderValue(crossShader, timeLocCrossCell, &iTime, SHADER_UNIFORM_FLOAT);
 
-
+    // pre render particle shader on a small texture for using in particle drawing
     BeginTextureMode(particleRenderTexture);
     {
         ClearBackground(BLANK);
@@ -1500,11 +1512,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 canRegister      = false;
                 if (IsKeyPressed(KEY_ESCAPE))
                     currentState = GameState::end;
+                // there is no diffrence btw mouse click or finger touche in raylib
                 else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
                 {
                     canRegister = true;
                 }
                 // ui hit detection
+                // reset state is true
                 if (CheckCollisionPointRec(mousePos, RA_UI::getBtnRect(resetBtnID)) &&
                     canRegister)
                 {
@@ -1516,22 +1530,27 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         {
             // update shader loc address
             float const tempTime = GetTime();
-            float const period = 20.0f;  // full up+down cycle = 80 up + 80 down
+            // using triangle wave for optimization for time in sending it to
+            // shader and better visual (go from 0 to 10 ->return from 10 to zero)
+            float const period = 20.0f;  // full up+down cycle = 10 up + 10 down
             iTime              = 10.0f - fabs(fmod(tempTime, period) - 10.0f);
-            // std::cout << iTime << '\n';
 
+            // setting time for shaders
             SetShaderValue(backgroundShader,
                            timeLocBackground,
                            &iTime,
                            SHADER_UNIFORM_FLOAT);
-            SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
-
-            SetShaderValue(cellShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
-
+            SetShaderValue(circleShader, timeLocCell, &iTime, SHADER_UNIFORM_FLOAT);
             SetShaderValue(crossShader, timeLocCrossCell, &iTime, SHADER_UNIFORM_FLOAT);
 
-            // box2d Update world state (box2d-related)
-            b2World_Step(worldID, timeStep, subStepCount);
+            // setting current player color to background shader effect
+            SetShaderValue(backgroundShader, colorLoc, iColor, SHADER_UNIFORM_VEC3);
+
+            // physiques update
+            {
+                // box2d Update world state (box2d-related)
+                b2World_Step(worldID, timeStep, subStepCount);
+            }
             // update game state
             if (currentState == GameState::none)
             {
@@ -1547,7 +1566,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                         auto const indexRect = RA_Util::point2IndexOnGrid(mousePos,
                                                                           gridinfo);
                         // create new rect inside the rect that touched with player color
-                        ColoredRect newRect {};
+                        PlayerShapeInfo newRect {};
                         // new rect should adjust size and coordinate inside the parent (touched rect)
                         newRect.rect = RA_Util::placeRelativeCenter(selectedRect.value(),
                                                                     55,
@@ -1720,7 +1739,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                             {
                                 if (rect.id == p1.id)
                                 {
-                                    BeginShaderMode(cellShader);
+                                    BeginShaderMode(circleShader);
+                                    // bottom-left is origin for glsl
                                     DrawTexturePro(shapeTexture,
                                                    {.x      = 0.f,
                                                     .y      = 0.f,
@@ -1742,6 +1762,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                 else  // its p2
                                 {
                                     BeginShaderMode(crossShader);
+                                    // bottom-left is origin for glsl
                                     DrawTexturePro(shapeTexture,
                                                    {.x      = 0.f,
                                                     .y      = 0.f,
@@ -1875,7 +1896,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     UnloadFont(font);
 
     UnloadShader(backgroundShader);
-    UnloadShader(cellShader);
+    UnloadShader(circleShader);
     UnloadShader(crossShader);
 
     CloseWindow();

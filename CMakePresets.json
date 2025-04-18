@@ -439,56 +439,56 @@
             "displayName": "Unix Clang Safe",
             "configurePreset": "unix-clang-safe",
             "configuration": "Debug",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "unix-clang-test",
             "displayName": "Unix Clang Test",
             "configurePreset": "unix-clang-test",
             "configuration": "Debug",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "unix-clang-release",
             "displayName": "Unix Clang Release",
             "configurePreset": "unix-clang-release",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "arm64-v8a",
             "displayName": "arm64-v8a",
             "configurePreset": "arm64-v8a",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "armeabi-v7a",
             "displayName": "armeabi-v7a",
             "configurePreset": "armeabi-v7a",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "x86_64",
             "displayName": "x86_64",
             "configurePreset": "x86_64",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "x86",
             "displayName": "x86",
             "configurePreset": "x86",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         },
         {
             "name": "Build-App",
             "displayName": "Build-App",
             "configurePreset": "Build-App",
             "configuration": "Release",
-            "jobs": 12
+            "jobs": 8
         }
     ]
 }
