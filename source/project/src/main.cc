@@ -1004,9 +1004,8 @@ auto drawLable(u32 const lableID) -> void
     RA_Util::checkAtRuntime((lableID < 0), "lable id is invalid");
     UILable const & lable       = lablesArray[lableID];
     Font const &    currentFont = fontsArray[lable.fontIndx];
-    auto const      text        = lablesTextArray[lable.textIndx].c_str();
-
-    if (text == " " || lable.fontSize == 0 || lable.isHidden)
+    char const*     text        = lablesTextArray[lable.textIndx].c_str();
+    if (text == nullptr || lable.fontSize == 0 || lable.isHidden)
         return;
 
     DrawTextEx(currentFont,
@@ -1320,7 +1319,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // Simulating setting (box2d-related)
     b2WorldId const     worldID = RA_Particle::initWorldOfBox2d();
     constexpr f32 const timeStep {1.f / (100)};
-    i32 const           subStepCount {(fps / 2) / 5};  // for 60HZ monitor its 3
+    i32 const           subStepCount {fps / 10};  // for 60HZ monitor its 3
     // init memory for particles
     std::vector<Particle> particles {};
     particles.reserve(1000);
@@ -1717,10 +1716,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // draw game loop
         {
-            ClearBackground(BLANK);
-            BeginDrawing();
-            BeginMode2D(camera);
-
             {
                 BeginTextureMode(mainRenderTexture);
                 {
@@ -1797,11 +1792,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                     }
                 }
                 EndTextureMode();
-                // draw render shader
-                DrawTextureEx(mainRenderTexture.texture, {}, 0.f, 2.f, WHITE);
             }
 
-
+            // ClearBackground(BLANK);
+            BeginDrawing();
+            BeginMode2D(camera);
+            DrawTextureEx(mainRenderTexture.texture, {}, 0.f, 2.f, WHITE);
             // state specific drawing animation and etc ...
             switch (currentState)
             {
