@@ -1,3 +1,4 @@
+#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -10,12 +11,14 @@ constexpr u8 const animationFPS = 60;
 inline static constexpr str_v const texturePath = "resource/textures/"sv;
 inline static constexpr str_v const fontPath    = "resource/fonts/"sv;
 inline static constexpr str_v const shadersPath = "resource/shaders/glsl"sv;
+inline static constexpr str_v const audioesPath = "resource/audioes/"sv;
 
 enum class EFileType : u8
 {
     Texture = 0,
     Font,
-    Shader
+    Shader,
+    Audio
 };
 constexpr Color const gray = Color {37, 37, 37, 255};
 
@@ -49,6 +52,11 @@ auto pathToFile(str_v const fileName, EFileType const fileType) -> str
             // the 2 is the glsl define size
             path.append(RA_Global::shadersPath);
             path.append(TextFormat("%i/", GLSL_VERSION));
+            break;
+        }
+        case EFileType::Audio:
+        {
+            path.append(RA_Global::audioesPath);
             break;
         }
     }
@@ -1305,6 +1313,16 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // bc if user has 2 monitor we want to run on focused screen
     ToggleFullscreen();
 
+    // init Audio
+    InitAudioDevice();
+    // load music
+    Music music = LoadMusicStream(
+        RA_Global::pathToFile("mini1111.xm"sv, RA_Global::EFileType::Audio).c_str());
+    music.looping = true;
+    // play music
+    PlayMusicStream(music);
+
+
     // clang-format off
     auto const [font,fontSize] = RA_Font::initFont(
         "NotoSans-VariableFont_wdth,wght.ttf"sv,
@@ -1527,6 +1545,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
         // update
         {
+            // update music buffer with new stream data
+            UpdateMusicStream(music);
+
             // update shader loc address
             float const tempTime = GetTime();
             // using triangle wave for optimization for time in sending it to
@@ -1881,6 +1902,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
     }
     // clean-up
+    UnloadMusicStream(music);
     b2DestroyWorld(worldID);
 
     UnloadTexture(gridTexture);
@@ -1895,6 +1917,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     UnloadShader(circleShader);
     UnloadShader(crossShader);
 
+    CloseAudioDevice();
     CloseWindow();
+
     return 0;
 }
