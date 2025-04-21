@@ -1529,6 +1529,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 canRegister      = false;
                 if (IsKeyPressed(KEY_ESCAPE))
                     currentState = GameState::end;
+                if (IsKeyPressed(KEY_BACK))
+                {
+                    // TODO: reset game state then leave the game
+                    break;
+                }
                 // there is no diffrence btw mouse click or finger touche in raylib
                 else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
                 {
@@ -1919,6 +1924,4 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     CloseAudioDevice();
     CloseWindow();
-
-    return 0;
 }

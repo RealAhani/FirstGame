@@ -24,6 +24,8 @@ macro(BuildAPK target_link)
                 "res"
                 COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/resources/assets"
                 "assets"
+                COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/resources/android/lib"
+                "jarLibs"
 
                 # copy config_bak
                 COMMAND ${CMAKE_COMMAND} -E copy_directory "config_bak" "."
@@ -37,7 +39,7 @@ macro(BuildAPK target_link)
                 COMMAND
                 javac ARGS -Xlint:deprecation -verbose -source 1.8 -target 1.8 -d
                 "${ANDROID_OUTPUT}/obj" -bootclasspath "${JAVA_HOME}/jre/lib/rt.jar"
-                -classpath "${ANDROID_PLATFORM_PATH}/android.jar" -sourcepath
+                -classpath "${ANDROID_PLATFORM_PATH}/android.jar:${ANDROID_OUTPUT}/jarLibs/*" -sourcepath
                 "${ANDROID_OUTPUT}/src"
                 "${ANDROID_OUTPUT}/src/com/${APP_COMPANY_NAME}/${APP_PRODUCT_NAME}/R.java"
                 "${ANDROID_OUTPUT}/src/com/${APP_COMPANY_NAME}/${APP_PRODUCT_NAME}/NativeLoader.java"
@@ -86,7 +88,7 @@ macro(BuildAPK target_link)
                 pass:${APP_KEYSTORE_PASS} ${ANDROID_OUTPUT}/bin/${APP_PRODUCT_NAME}.signed.apk
                 WORKING_DIRECTORY ${ANDROID_OUTPUT})
             add_custom_target("buildapp" ALL DEPENDS "${ANDROID_OUTPUT}/bin")
-        else()
+        else() # debug
             add_custom_command(
                 OUTPUT "${ANDROID_OUTPUT}/bin"
 
@@ -95,6 +97,8 @@ macro(BuildAPK target_link)
                 "res"
                 COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/resources/assets"
                 "assets"
+                COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/resources/android/lib"
+                "jarLibs"
 
                 # copy config_bak
                 COMMAND ${CMAKE_COMMAND} -E copy_directory "config_bak" "."
@@ -108,7 +112,7 @@ macro(BuildAPK target_link)
                 COMMAND
                 javac ARGS -Xlint:deprecation -verbose -source 1.8 -target 1.8 -d
                 "${ANDROID_OUTPUT}/obj" -bootclasspath "${JAVA_HOME}/jre/lib/rt.jar"
-                -classpath "${ANDROID_PLATFORM_PATH}/android.jar" -sourcepath
+                -classpath "${ANDROID_PLATFORM_PATH}/android.jar:${ANDROID_OUTPUT}/jarLibs/*" -sourcepath
                 "${ANDROID_OUTPUT}/src"
                 "${ANDROID_OUTPUT}/src/com/${APP_COMPANY_NAME}/${APP_PRODUCT_NAME}/R.java"
                 "${ANDROID_OUTPUT}/src/com/${APP_COMPANY_NAME}/${APP_PRODUCT_NAME}/NativeLoader.java"
