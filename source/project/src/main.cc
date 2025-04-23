@@ -1186,7 +1186,6 @@ auto creatDynamicBody(Particle const & pr, b2WorldId const & worldID) noexcept
         b2MakeBox(pr.rect.width / 2.f, pr.rect.height / 2.f)};
     b2ShapeDef boxShapeDef          = {b2DefaultShapeDef()};
     boxShapeDef.density             = 0.5f;
-    boxShapeDef.friction            = 0.1f;
     boxShapeDef.filter.categoryBits = 0x0002;
     boxShapeDef.filter.maskBits     = 0xFFFF ^ 0x0002;
     b2CreatePolygonShape(boxBodyId, &boxShapeDef, &boxShape);
@@ -1312,7 +1311,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // toggle Full screen after the above setup
     // bc if user has 2 monitor we want to run on focused screen
     ToggleFullscreen();
-
     // init Audio
     InitAudioDevice();
     // load music
@@ -1336,8 +1334,8 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
     b2WorldId const     worldID = RA_Particle::initWorldOfBox2d();
-    constexpr f32 const timeStep {1.f / (100)};
-    i32 const           subStepCount {fps / 10};  // for 60HZ monitor its 3
+    constexpr f32 const timeStep {1.f / (60)};
+    i32 const           subStepCount {3};  // for 60HZ monitor its 3
     // init memory for particles
     std::vector<Particle> particles {};
     particles.reserve(1000);
