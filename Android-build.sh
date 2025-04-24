@@ -15,14 +15,14 @@ if [ "$1" == "Release" ]; then
     cmake --preset "arm64-v8a" -DCMAKE_BUILD_TYPE=Release
     cmake --build --preset "arm64-v8a" --config Release
 
-    cmake --preset "armeabi-v7a" -DCMAKE_BUILD_TYPE=Release
-    cmake --build --preset "armeabi-v7a" --config Release
+    # cmake --preset "armeabi-v7a" -DCMAKE_BUILD_TYPE=Release
+    # cmake --build --preset "armeabi-v7a" --config Release
 
-    cmake --preset "x86_64" -DCMAKE_BUILD_TYPE=Release
-    cmake --build --preset "x86_64" --config Release
+    # cmake --preset "x86_64" -DCMAKE_BUILD_TYPE=Release
+    # cmake --build --preset "x86_64" --config Release
 
-    cmake --preset "x86" -DCMAKE_BUILD_TYPE=Release
-    cmake --build --preset "x86" --config Release
+    # cmake --preset "x86" -DCMAKE_BUILD_TYPE=Release
+    # cmake --build --preset "x86" --config Release
 
     cmake --preset "Build-App" -DCMAKE_BUILD_TYPE=Release
     cmake --build --preset "Build-App" --config Release

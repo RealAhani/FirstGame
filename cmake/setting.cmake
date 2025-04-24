@@ -124,7 +124,7 @@ set(LINK_VARS "raylib;box2d" CACHE STRING "the library linking variables")
 if(${PLATFORM} STREQUAL "Android")
   list(APPEND LINK_VARS "native_app_glue;log;android;EGL;GLESV2;OpenSLES")
   list(APPEND DBG_FLAGS "-fPIC")
-  list(APPEND REL_FLAGS "-fPIC;-O3;-lto")
+  list(APPEND REL_FLAGS "-fPIC")
 endif(${PLATFORM} STREQUAL "Android")
 
 # ################### Packaging for release

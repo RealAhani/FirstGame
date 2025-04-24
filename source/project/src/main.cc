@@ -1,4 +1,3 @@
-#include "raylib.h"
 namespace
 {
 using namespace std::string_literals;
@@ -1079,6 +1078,14 @@ struct PlayerShapeInfo
     Rectangle rect;
     Color     color;
     u8        id;
+
+    PlayerShapeInfo(Rectangle const & r, Color const & c, u8 const i) :
+    rect {r},
+    color {c},
+    id {i}
+    {
+    }
+
     PlayerShapeInfo()  = default;
     ~PlayerShapeInfo() = default;
     auto operator=(PlayerShapeInfo const & rhs) -> PlayerShapeInfo &
@@ -1117,8 +1124,6 @@ u32                    winUIFramCounter {0};
 u32                    winFrameLimit {10};
 u32                    winAnimResetFrame {40};
 u8                     winAnimState {1};
-u32                    inputFramCounter {0};
-bool                   canRegister {false};
 bool                   canReset {false};
 Vector2                uIPointAnimationWin {0.f, 0.f};
 Vector2                mousePos {0.f, 0.f};
@@ -1513,37 +1518,27 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
 
     // game loop
-    while (!WindowShouldClose() && currentState != GameState::end)
+    while (currentState != GameState::end)
     {
         // input
         {
             // make input less responsive bc dont need every fram input
-            // pulling => less cpu hogging || more proformance friendly
-            inputFramCounter++;
-            if (inputFramCounter >= 2)
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
             {
-                mousePos         = GetTouchPosition(0);
-                inputFramCounter = 0;
-                canRegister      = false;
-                if (IsKeyPressed(KEY_ESCAPE))
-                    currentState = GameState::end;
-                if (IsKeyPressed(KEY_BACK))
-                {
-                    // TODO: reset game state then leave the game
-                    break;
-                }
-                // there is no diffrence btw mouse click or finger touche in raylib
-                else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-                {
-                    canRegister = true;
-                }
+                mousePos = GetTouchPosition(0);
                 // ui hit detection
                 // reset state is true
-                if (CheckCollisionPointRec(mousePos, RA_UI::getBtnRect(resetBtnID)) &&
-                    canRegister)
+                if (CheckCollisionPointRec(mousePos, RA_UI::getBtnRect(resetBtnID)))
                 {
                     canReset = true;
                 }
+            }
+            else if (IsKeyPressed(KEY_ESCAPE))
+                currentState = GameState::end;
+            else if (IsKeyPressed(KEY_BACK))
+            {
+                // TODO: reset game state then leave the game
+                break;
             }
         }
         // update
@@ -1578,76 +1573,72 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             if (currentState == GameState::none)
             {
                 // update game based on input
-                if (canRegister)
+                // what is the sub-rectangle on the grid + index of that rectangle in optional type
+                auto const selectedRect {
+                    RA_Util::point2RectOnGrid(mousePos, gridinfo)};
+                // if player touch inside grid
+                if (selectedRect.has_value())
                 {
-                    // what is the sub-rectangle on the grid + index of that rectangle in optional type
-                    auto const selectedRect {
-                        RA_Util::point2RectOnGrid(mousePos, gridinfo)};
-                    // if player touch inside grid
-                    if (selectedRect.has_value())
+                    auto const indexRect = RA_Util::point2IndexOnGrid(mousePos,
+                                                                      gridinfo);
+                    // create new rect inside the rect that touched with player color
+                    // new rect should adjust size and coordinate inside the
+                    // parent (touched rect) adjust color based on current player
+                    PlayerShapeInfo const
+                        newRect(RA_Util::placeRelativeCenter(selectedRect.value(), 55, 55),
+                                currentPlayer->rectColor,
+                                currentPlayer->id);
+
+                    // if this new rect does not exist in buffer add it to buffer
+                    if (std::ranges::find(std::cbegin(rects),
+                                          std::cend(rects),
+                                          newRect) == std::cend(rects))
                     {
-                        auto const indexRect = RA_Util::point2IndexOnGrid(mousePos,
-                                                                          gridinfo);
-                        // create new rect inside the rect that touched with player color
-                        PlayerShapeInfo newRect {};
-                        // new rect should adjust size and coordinate inside the parent (touched rect)
-                        newRect.rect = RA_Util::placeRelativeCenter(selectedRect.value(),
-                                                                    55,
-                                                                    55);
-                        // adjust color based on current player
-                        newRect.color = currentPlayer->rectColor;
-                        newRect.id    = currentPlayer->id;
-                        // if this new rect does not exist in buffer add it to buffer
-                        if (std::ranges::find(std::cbegin(rects),
-                                              std::cend(rects),
-                                              newRect) == std::cend(rects))
+                        rects.emplace_back(newRect);
+                        // each rect index is 1 or 0 based on
+                        // previouse touched on it bitset start
+                        // from zero but rect index start from 1
+                        // => so we should do: indexRect -1
+                        currentPlayer->moves.set((indexRect)-1, true);
+                        // check for win condition on LookUpTable bitsets => bit by bit
+                        for (auto const n : winTable)
                         {
-                            rects.emplace_back(newRect);
-                            // each rect index is 1 or 0 based on
-                            // previouse touched on it bitset start
-                            // from zero but rect index start from 1
-                            // => so we should do: indexRect -1
-                            currentPlayer->moves.set((indexRect)-1, true);
-                            // check for win condition on LookUpTable bitsets => bit by bit
-                            for (auto const n : winTable)
+                            u8 counter {};
+                            for (u32 i = 0; i < currentPlayer->moves.size(); ++i)
                             {
-                                u8 counter {};
-                                for (u32 i = 0; i < currentPlayer->moves.size(); ++i)
+                                // if both bit are 1
+                                if (currentPlayer->moves[i] && n[i])
                                 {
-                                    // if both bit are 1
-                                    if (currentPlayer->moves[i] && n[i])
-                                    {
-                                        // add this index it to index
-                                        // buffer for win animation and drawing stuff
-                                        indexCausWin[counter] = cast(u8, i + 1);
-                                        counter++;
-                                    }
-                                }
-                                // if 3 bits is set it means you match one
-                                // of the winTable numbers
-                                // ToDo : this 3 should change based on row* col size
-                                if (counter == goal)
-                                {
-                                    currentState = GameState::win;
-                                    break;
+                                    // add this index it to index
+                                    // buffer for win animation and drawing stuff
+                                    indexCausWin[counter] = cast(u8, i + 1);
+                                    counter++;
                                 }
                             }
-                            // change current player to next player if the game is going on
-                            if (currentState == GameState::none)
+                            // if 3 bits is set it means you match one
+                            // of the winTable numbers
+                            // ToDo : this 3 should change based on row* col size
+                            if (counter == goal)
                             {
-                                if (currentPlayer->id == p1.id)
-                                {
-                                    currentPlayer = &p2;
-                                }
-                                else
-                                {
-                                    currentPlayer = &p1;
-                                }
-                                // update player color for background shader
-                                iColor[0] = currentPlayer->rectColor.r;
-                                iColor[1] = currentPlayer->rectColor.g;
-                                iColor[2] = currentPlayer->rectColor.b;
+                                currentState = GameState::win;
+                                break;
                             }
+                        }
+                        // change current player to next player if the game is going on
+                        if (currentState == GameState::none)
+                        {
+                            if (currentPlayer->id == p1.id)
+                            {
+                                currentPlayer = &p2;
+                            }
+                            else
+                            {
+                                currentPlayer = &p1;
+                            }
+                            // update player color for background shader
+                            iColor[0] = currentPlayer->rectColor.r;
+                            iColor[1] = currentPlayer->rectColor.g;
+                            iColor[2] = currentPlayer->rectColor.b;
                         }
                     }
                 }
@@ -1717,7 +1708,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 winAnimState        = 1;
                 uIPointAnimationWin = {};
                 winAnimResetFrame   = {40};
-                inputFramCounter    = {0};
                 RA_UI::updateLable(gameStateLblID, "", WHITE, 100, true, Vector2 {});
                 iColor[0] = currentPlayer->rectColor.r;
                 iColor[1] = currentPlayer->rectColor.g;
