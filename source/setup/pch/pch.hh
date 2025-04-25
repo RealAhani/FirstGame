@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <random>
 // #include <map>
+#include <span>
 #include <vector>
 #include <array>
 #include <optional>

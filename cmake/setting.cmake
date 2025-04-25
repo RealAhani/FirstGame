@@ -69,7 +69,7 @@ endif(WERROR_FLAG)
 
 # release flags
 # -march=native -flto -fPIC
-set(REL_FLAGS "-O3;-DNDEBUG;-ftree-vectorize"
+set(REL_FLAGS "-O2;-DNDEBUG;-ftree-vectorize"
   CACHE STRING "release flags")
 
 # sanitizer flags

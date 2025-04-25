@@ -145,6 +145,18 @@ auto drawTextSDF(Font const &    font,
 namespace RA_Util
 {
 
+/*
+ *@Goal: return the Time based on half period like a trangle wave
+ *       using triangle wave for optimization for time in sending it to
+ *       shader and better visual for 20sec period =>(go from 0 to 10 ->return from 10 to zero)
+ */
+[[maybe_unused]] [[nodiscard]]
+auto correctTime(f32 const period) noexcept -> f32
+{
+    f32 const half {period / 2.f};
+    return (half - fabs(fmod(GetTime(), period) - half));
+}
+
 class GRandom
 {
 public:
@@ -278,8 +290,8 @@ struct GridInfo
 {
     Rectangle rect;
     Vector2   cellSize;
-    u8        columnCount;
-    u8        rowCount;
+    u16       columnCount;
+    u16       rowCount;
 };
 
 /*
@@ -383,7 +395,7 @@ auto genGridTexture(GridInfo const & grid,
     }
     Texture2D gridTexture = LoadTextureFromImage(img);
     // #if defined(DEBUG)
-    // ExportImage(img, "myimg.png");
+    // ExportImage(img, "myGrid.png");
     // #endif
     UnloadImage(img);
     return gridTexture;
@@ -549,6 +561,9 @@ auto index2RectOnGrid(u16 const index, GridInfo const & grid) noexcept -> Rectan
     };
 }
 
+/*
+ *@Goal: move a point(p1) towards the p2 based on some rate(pixelPerFrame)
+ */
 [[maybe_unused]]
 auto moveTowards(Vector2 & p1, Vector2 const & p2, u16 const pixelPerFrame) noexcept
     -> void
@@ -566,6 +581,10 @@ auto moveTowards(Vector2 & p1, Vector2 const & p2, u16 const pixelPerFrame) noex
         p1 = p2;  // Snap to target if within step size
 }
 
+/*
+ *@Goal: draw a rectangle like a line
+ */
+[[maybe_unused]]
 auto drawGoodLine(Vector2 const & start,
                   Vector2 const & end,
                   u16 const       lineThickness,
@@ -577,23 +596,25 @@ auto drawGoodLine(Vector2 const & start,
     f32       currentX      = 0.f;
     f32       currentY      = 0.f;
     u16 const tempRotation  = cast(u16, rotation);
-
+    // for angle that bigger than 135
     if (tempRotation >= 135)
     {
         currentX = start.x;
         currentY = start.y + (currentHeight * .5f);
     }
+    // for 90 deg angle
     else if (tempRotation == 90)
     {
         currentX = start.x + (currentHeight * .5f);
         currentY = start.y;
     }
+    // for grater than 40 deg
     else if (tempRotation >= 40)
     {
         currentX = start.x;
         currentY = start.y;
     }
-    else  // its for `0
+    else  // its for 0 deg
     {
         currentX = start.x;
         currentY = start.y - (currentHeight * .5f);
@@ -891,6 +912,10 @@ struct UIButton
     // sound
     // shader
 };
+
+// TODO: Optimization
+// TODO: use struct of array and optimize lable and btn based on static or changable
+// TODO: render once on texture and use it for draw on thefront of all elemnts
 std::vector<UIRouondLayout> layoutArray;
 std::vector<str>            lablesTextArray;
 std::vector<UILable>        lablesArray;
@@ -1131,9 +1156,9 @@ GameState              currentState {GameState::none};
 RA_Util::GRandom const gRandom(-1200.f, 1500.f);
 RA_Util::GRandom const littleRandom(5.f, 15.f);
 // constexpr u16 const    fps {60};
-constexpr u8 const row    = 4;
-constexpr u8 const column = 4;
-constexpr u8 const goal   = 4;
+constexpr u8 const row    = 3;
+constexpr u8 const column = 3;
+constexpr u8 const goal   = 3;
 struct Player
 {
     std::bitset<row * column> moves;
@@ -1144,20 +1169,20 @@ struct Player
 // clang-format off
 // win condition should check this table to state the winner
 // win table for 3x3
-// inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
-// {
-//     0x007, 0x038,
-//     0x049, 0x054,
-//     0x092, 0x111, 
-//     0x124, 0x1c0
-// };
-// win table for 4x4
-inline static constexpr std::array<std::bitset<row*column>, 10> const winTable 
+inline static constexpr std::array<std::bitset<row*column>, 8> const winTable 
 {
-    0b1111000000000000,0b0000111100000000,0b0000000011110000,0b0000000000001111,
-    0b1000100010001000,0b0100010001000100,0b0010001000100010,0b0001000100010001,
-    0b1000010000100001,0b0001001001001000
+    0x007, 0x038,
+    0x049, 0x054,
+    0x092, 0x111, 
+    0x124, 0x1c0
 };
+// win table for 4x4
+// inline static constexpr std::array<std::bitset<row*column>, 10> const winTable 
+// {
+//     0b1111000000000000,0b0000111100000000,0b0000000011110000,0b0000000000001111,
+//     0b1000100010001000,0b0100010001000100,0b0010001000100010,0b0001000100010001,
+//     0b1000010000100001,0b0001001001001000
+// };
 // clang-format on
 
 
@@ -1196,9 +1221,8 @@ auto creatDynamicBody(Particle const & pr, b2WorldId const & worldID) noexcept
     b2CreatePolygonShape(boxBodyId, &boxShapeDef, &boxShape);
     return boxBodyId;
 }
-
 [[maybe_unused]]
-auto impulseParticles(std::vector<Particle> const & particles) noexcept -> void
+auto impulseParticles(std::span<Particle> const & particles) noexcept -> void
 {
     u16 i {};
     for (auto const pr : particles)
@@ -1234,7 +1258,7 @@ auto impulseParticle(Particle const & pr) noexcept -> void
 
 
 [[maybe_unused]]
-auto resetParticles(std::vector<Particle> const & particles) noexcept -> void
+auto resetParticles(std::span<Particle> const & particles) noexcept -> void
 {
     for (auto const pr : particles)
     {
@@ -1255,9 +1279,9 @@ auto resetParticle(Particle const & pr) noexcept -> void
     b2Body_Disable(pr.bodyID);
 }
 [[maybe_unused]]
-auto drawParticles(std::vector<Particle> const & particles,
-                   Texture2D const &             texture,
-                   Color                         color) noexcept -> void
+auto drawParticles(std::span<Particle> const & particles,
+                   Texture2D const &           texture,
+                   Color                       color) noexcept -> void
 {
     Rectangle const boundRect {.x      = -300.f,
                                .y      = 0,
@@ -1296,8 +1320,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 {
 
     // init window properties
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT | FLAG_WINDOW_TOPMOST |
-                   FLAG_BORDERLESS_WINDOWED_MODE);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_BORDERLESS_WINDOWED_MODE);
     InitWindow(0, 0, "XOXO");
 
     // find out the screen resulation
@@ -1342,19 +1365,19 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     constexpr f32 const timeStep {1.f / (60)};
     i32 const           subStepCount {3};  // for 60HZ monitor its 3
     // init memory for particles
-    std::vector<Particle> particles {};
-    particles.reserve(1000);
+    constexpr u16 const                 particleCount {1000};
+    std::array<Particle, particleCount> particles {};
     // create dynamic bodies
-    for (u16 i {}; i < 1000; ++i)
+    for (u16 i {}; i < particleCount; ++i)
     {
         Particle  pr {};
         f32 const size = littleRandom.getRandom();
         pr.rect.x      = gRandom.getRandom();
-        pr.rect.y      = ((gHeight / 3.f) * -1);
+        pr.rect.y      = (gHeight / -3.f);
         pr.rect.height = size;
         pr.rect.width  = size;
         pr.bodyID      = RA_Particle::creatDynamicBody(pr, worldID);
-        particles.emplace_back(pr);
+        particles[i]   = pr;
     }
 
     auto const gridinfo = RA_Util::
@@ -1417,11 +1440,11 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                            25,
                                            Vector2 {50.f, 40.f});
     // turn lable
-    // auto const turnLblID = RA_UI::makeLable("Turn",
-    //                                         currentPlayer->rectColor,
-    //                                         defaultFontID,
-    //                                         fontSize,
-    //                                         Vector2 {70.f, 350.f});
+    auto const turnLblID = RA_UI::makeLable("Turn",
+                                            currentPlayer->rectColor,
+                                            defaultFontID,
+                                            fontSize,
+                                            Vector2 {70.f, 350.f});
     // gameState lable
     auto const gameStateLblID = RA_UI::makeLable("",
                                                  currentPlayer->rectColor,
@@ -1538,6 +1561,24 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             else if (IsKeyPressed(KEY_BACK))
             {
                 // TODO: reset game state then leave the game
+                currentState = GameState::none;
+                p1.moves.reset();
+                p2.moves.reset();
+                rects.clear();
+                indexCausWin.fill(0);
+                RA_Particle::resetParticles(particles);
+                currentPlayer       = &p1;
+                wonPlayer           = nullptr;
+                canReset            = false;
+                winUIFramCounter    = 0;
+                winFrameLimit       = 10;
+                winAnimState        = 1;
+                uIPointAnimationWin = {};
+                winAnimResetFrame   = 40;
+                RA_UI::updateLable(gameStateLblID, "", WHITE, 100, true, Vector2 {});
+                iColor[0] = currentPlayer->rectColor.r;
+                iColor[1] = currentPlayer->rectColor.g;
+                iColor[2] = currentPlayer->rectColor.b;
                 break;
             }
         }
@@ -1547,12 +1588,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             UpdateMusicStream(music);
 
             // update shader loc address
-            float const tempTime = GetTime();
-            // using triangle wave for optimization for time in sending it to
-            // shader and better visual (go from 0 to 10 ->return from 10 to zero)
-            float const period = 20.0f;  // full up+down cycle = 10 up + 10 down
-            iTime              = 10.0f - fabs(fmod(tempTime, period) - 10.0f);
-
+            iTime = RA_Util::correctTime(20.f);
             // setting time for shaders
             SetShaderValue(backgroundShader,
                            timeLocBackground,
@@ -1674,9 +1710,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                          currentState == GameState::none)
                 {
                     currentState = GameState::tie;
-                    iColor[0]    = 255;
-                    iColor[1]    = 255;
-                    iColor[2]    = 255;
+                    // White color
+                    iColor[0] = 255;
+                    iColor[1] = 255;
+                    iColor[2] = 255;
                     RA_Particle::impulseParticles(particles);
                     RA_UI::updateLable(gameStateLblID,
                                        "Tie",
@@ -1707,11 +1744,12 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 winFrameLimit       = 10;
                 winAnimState        = 1;
                 uIPointAnimationWin = {};
-                winAnimResetFrame   = {40};
+                winAnimResetFrame   = 40;
                 RA_UI::updateLable(gameStateLblID, "", WHITE, 100, true, Vector2 {});
                 iColor[0] = currentPlayer->rectColor.r;
                 iColor[1] = currentPlayer->rectColor.g;
                 iColor[2] = currentPlayer->rectColor.b;
+                // RA_Game::resetGameState();
             }
             RA_UI::updateLable(fpsLblID,
                                TextFormat("FPS: %d", GetFPS()),
@@ -1720,13 +1758,13 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                                false,
                                Vector2 {50.f, 40.f});
 
-            // RA_UI::updateLable(turnLblID,
-            //                    "Turn",
-            //                    currentPlayer->rectColor,
-            //                    fontSize,
-            //                    (currentState == GameState::win ||
-            //                     currentState == GameState::tie),
-            //                    Vector2 {70.f, 350.f});
+            RA_UI::updateLable(turnLblID,
+                               "Turn",
+                               currentPlayer->rectColor,
+                               fontSize,
+                               (currentState == GameState::win ||
+                                currentState == GameState::tie),
+                               Vector2 {70.f, 350.f});
         }
         // draw game loop
         {
@@ -1808,7 +1846,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 EndTextureMode();
             }
 
-            // ClearBackground(BLANK);
+            ClearBackground(BLANK);
             BeginDrawing();
             BeginMode2D(camera);
             DrawTextureEx(mainRenderTexture.texture, {}, 0.f, 2.f, WHITE);
@@ -1895,6 +1933,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
         }
     }
     // clean-up
+
+    ClearBackground(BLANK);
+    EndDrawing();
     UnloadMusicStream(music);
     b2DestroyWorld(worldID);
 
