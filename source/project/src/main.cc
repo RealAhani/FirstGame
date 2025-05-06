@@ -923,6 +923,18 @@ std::vector<UILable>        lablesArray;
 std::vector<UIButton> buttonsArray;
 std::vector<Font>     fontsArray;
 
+auto cleanUI() -> bool
+{
+    if (layoutArray.empty() || lablesArray.empty() || lablesArray.empty() ||
+        buttonsArray.empty() || fontsArray.empty())
+        return false;
+    layoutArray.clear();
+    lablesTextArray.clear();
+    lablesArray.clear();
+    buttonsArray.clear();
+    fontsArray.clear();
+    return true;
+}
 auto getFontID(Font const & font) -> u32
 {
     static u32 fontID {0};
@@ -1935,6 +1947,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
 
     ClearBackground(BLANK);
+    // zero out ui mem just in case of android backbutton ui bugg
+    if (!RA_UI::cleanUI())
+        std::cerr << "error : ui not cleaned properly";
     EndDrawing();
     UnloadMusicStream(music);
     b2DestroyWorld(worldID);
