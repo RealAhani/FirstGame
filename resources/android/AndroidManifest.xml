@@ -24,8 +24,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.GAME" />
             </intent-filter>
+            <!-- this is for openning app from browser  -->
+            <intent-filter>
+                <data android:scheme="my.special.sheme"/>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+            </intent-filter>
+
             <meta-data android:name="android.app.lib_name" android:value="${LIBNAME}" />
             <meta-data android:name="android.app.isGame" android:value="true" />
         </activity>

@@ -15,8 +15,8 @@ if [ "$1" == "Release" ]; then
     cmake --preset "arm64-v8a" -DCMAKE_BUILD_TYPE=Release
     cmake --build --preset "arm64-v8a" --config Release
 
-    # cmake --preset "armeabi-v7a" -DCMAKE_BUILD_TYPE=Release
-    # cmake --build --preset "armeabi-v7a" --config Release
+    cmake --preset "armeabi-v7a" -DCMAKE_BUILD_TYPE=Release
+    cmake --build --preset "armeabi-v7a" --config Release
 
     # cmake --preset "x86_64" -DCMAKE_BUILD_TYPE=Release
     # cmake --build --preset "x86_64" --config Release
@@ -29,8 +29,8 @@ if [ "$1" == "Release" ]; then
 
     rm -rf ./build/Darwin/Other/Android/Build-App
 
-    adb uninstall com.Nullref.app
-    adb install -r ./build/Darwin/Other/Android/App/bin/app.final.apk
+    adb uninstall com.pixelatedvision.xoxo
+    adb install -r ./build/Darwin/Other/Android/App/bin/xoxo.final.apk
 elif [ "$1" == "Debug" ]; then
     echo "Debug Build"
     rm -rf ./build/Darwin/Other/Android/*
@@ -40,8 +40,8 @@ elif [ "$1" == "Debug" ]; then
     cmake --preset "Build-App" -DCMAKE_BUILD_TYPE=Debug
     cmake --build --preset "Build-App" --config Debug
 
-    adb uninstall com.Nullref.app
-    adb install -r ./build/Darwin/Other/Android/App/bin/app.final.apk
+    adb uninstall com.pixelatedvision.xoxo
+    adb install -r ./build/Darwin/Other/Android/App/bin/xoxo.final.apk
 else
     echo "Error: Unknown argument. Debug or Release"
     exit 1

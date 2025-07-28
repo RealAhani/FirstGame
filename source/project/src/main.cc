@@ -154,7 +154,7 @@ namespace RA_Util
 auto correctTime(f32 const period) noexcept -> f32
 {
     f32 const half {period / 2.f};
-    return (half - fabs(fmod(GetTime(), period) - half));
+    return (half - fabs(fmod(cast(f32, GetTime()), period) - half));
 }
 
 class GRandom
@@ -817,24 +817,62 @@ auto drawAnimCircles(u32 const                         currentFrame,
 }  // namespace RA_Anim
 namespace RA_UI
 {
-// struct UIicon
-// {
-//     Rectangle layout;
 
-//     // *index start from 0
-//     // *(index < 0) means not init
-//     i32 const iconTextureIndx;
+// entt that show as a ui element
+struct UIEntity
+{
+    enum Type
+    {
+        PlaceHolder,   // empty layout with chileds?
+        spalshScreen,  // layout with image and childes?
+        Lable,
+        Button,
+        RoundButton,
+        ProgressBar
+    };
+    // default initilize to -1 => invalid index
+    i32 id {-1};
+    i32 parent {-1};
+    i32 child {-1};
+    // event dispatch
+    bool canClick {false};
+    i32  onClickID {-1};     // clickable
+    i32  onHoverInID {-1};   // everything
+    i32  onHoverOutID {-1};  // everything
+    i32  onStart {-1};       // progressBar
+    i32  onCompleted {-1};   // progressBar
+    // layout
+    Rectangle layoutRect {};
+    Color     backgroundColor {RED};
+    f32       rotation {};
+    bool      layoutHidden {false};
+    // text lable
+    i64       textID {-1};
+    Rectangle txtRect {};
+    f32       txtRotation {};
+    Color     txtColor {BLUE};
+    i32       fontID {-1};
+    f32       fontSize {};
+    f32       fontSpacing {};
+    bool      txtHidden {false};
+    // Round Btn
+    f32   borderRoundness {};
+    f32   lineThickness {};
+    Color borderColor {WHITE};
+    bool  btnHidden {false};
+    // icon
+    i32       imageID {-1};
+    Rectangle imgRect {};
+    f32       imgRotation {};
+    Color     imgColor {GREEN};
+    bool      imgHidden {false};
+    // sound fx
+    i32 sfxID {-1};
+    // shader
+    i32   shaderID {-1};
+    Color shaderColor {WHITE};
+};
 
-//     // Shader shader;
-//     // animate
-
-//     // private:
-
-//     // *index of this item in owner array
-//     // *index start from 0
-//     // *(index < 0) means not init
-//     i32 const id;
-// };
 struct UILable
 {
     Vector2 position;
@@ -858,7 +896,7 @@ struct UILable
     // *index of this item in owner array
     // *index start from 0
     // *(index < 0) means not init
-    i32 const id;
+    std::size_t const id;
     // *index of this item in owner array
     // *index start from 0
     // *(index < 0) means not init
@@ -878,25 +916,8 @@ struct UIRouondLayout
     // *index of this item in owner array
     // *index start from 0
     // *(index < 0) means not init
-    i32 const id;
-    bool      isHidden {false};
-};
-// normat layout like rectangle without rounded corners
-struct UILayout
-{
-    Rectangle rect;
-    f32       rotation;
-    Color     backgroundColor;
-
-    // can be an array of lable or icon
-
-    // private:
-
-    // *index of this item in owner array
-    // *index start from 0
-    // *(index < 0) means not init
-    i32 const id;
-    bool      isHidden {false};
+    std::size_t const id;
+    bool              isHidden {false};
 };
 
 struct UIButton
@@ -904,9 +925,9 @@ struct UIButton
     // *index of this item in owner array
     // *index start from 0
     // *(index < 0) means not init
-    i32 const id;
-    i32 const layoutIndx;
-    i32 const lableIndx;
+    std::size_t const id;
+    i32 const         layoutIndx;
+    i32 const         lableIndx;
     // i32 const iconIndx;
     bool isHidden {false};
     // sound
@@ -916,25 +937,34 @@ struct UIButton
 // TODO: Optimization
 // TODO: use struct of array and optimize lable and btn based on static or changable
 // TODO: render once on texture and use it for draw on thefront of all elemnts
-std::vector<UIRouondLayout> layoutArray;
-std::vector<str>            lablesTextArray;
-std::vector<UILable>        lablesArray;
+std::vector<UIRouondLayout> layoutArray {};
+std::vector<str>            lablesTextArray {};
+std::vector<UILable>        lablesArray {};
 // std::vector<UIicon>         iconsArray;
-std::vector<UIButton> buttonsArray;
-std::vector<Font>     fontsArray;
+std::vector<UIButton> buttonsArray {};
+std::vector<Font>     fontsArray {};
+#define REQUIREDELEMENTS 10
 
+auto initUI() -> void
+{
+    layoutArray.reserve(REQUIREDELEMENTS);
+    lablesTextArray.reserve(REQUIREDELEMENTS);
+    lablesArray.reserve(REQUIREDELEMENTS);
+    buttonsArray.reserve(REQUIREDELEMENTS);
+    fontsArray.reserve(REQUIREDELEMENTS);
+}
 auto cleanUI() -> bool
 {
-    if (layoutArray.empty() || lablesArray.empty() || lablesArray.empty() ||
-        buttonsArray.empty() || fontsArray.empty())
-        return false;
+    // if (layoutArray.empty() || lablesTextArray.empty() || lablesArray.empty() ||
+    //     buttonsArray.empty() || fontsArray.empty())
+    //     return false;
     layoutArray.clear();
     lablesTextArray.clear();
     lablesArray.clear();
     buttonsArray.clear();
     fontsArray.clear();
-    return true;
 }
+
 auto getFontID(Font const & font) -> u32
 {
     static u32 fontID {0};
@@ -944,34 +974,32 @@ auto getFontID(Font const & font) -> u32
 
 auto initRoundButton(i32 const  layoutIndx,
                      i32 const  lableIndx /*, i32 const iconIndx */,
-                     bool const isHidden = false) -> i32
+                     bool const isHidden = false) -> u32
 {
-    static i32     btnID {0};
-    UIButton const btn {.id         = btnID++,
+    UIButton const btn {.id         = buttonsArray.size(),
                         .layoutIndx = layoutIndx,
                         .lableIndx  = lableIndx,
                         .isHidden   = isHidden};
     // TODO: add icon
     //  .iconIndx   = iconIndx};
     buttonsArray.emplace_back(btn);
-    return (btnID - 1);
+    return btn.id;
 }
 
 auto initRoundLayout(Rectangle const & rect,
                      f32 const         borderRoundness,
                      f32 const         lineThickness,
                      Color const &     borderColor,
-                     bool const        isHidden = false) -> i32
+                     bool const        isHidden = false) -> u32
 {
-    static i32           layID {0};
     UIRouondLayout const layout {.rect            = rect,
                                  .borderRoundness = borderRoundness,
                                  .lineThickness   = lineThickness,
                                  .borderColor     = borderColor,
-                                 .id              = layID++,
+                                 .id              = layoutArray.size(),
                                  .isHidden        = isHidden};
     layoutArray.emplace_back(layout);
-    return (layID - 1);
+    return layout.id;
 }
 
 // position 0,0 is centerned by default
@@ -982,14 +1010,12 @@ auto makeLable(char const*     text,
                Vector2 const & position         = {0, 0},
                f32 const       fontSpace        = 2.f,
                bool const      isHidden         = false,
-               i32 const       parentLayoutIndx = -1) -> i32
+               i32 const       parentLayoutIndx = -1) -> u32
 {
     RA_Util::checkAtRuntime((fontSize <= 0), "font scale should not be zero");
     RA_Util::checkAtRuntime((fontIndx < 0), "font index is not valid"sv);
-
     Font const currentFont = fontsArray[cast(u32, fontIndx)];
     f32 const currentFontSize = cast(f32, currentFont.baseSize) * (fontSize / 100.f);
-    static i32 lblID {0};
     lablesTextArray.emplace_back(text);
 
     UILable lable {.position    = position,
@@ -999,7 +1025,7 @@ auto makeLable(char const*     text,
                    .fontSize    = currentFontSize,
                    .fontSpacing = fontSpace,
                    .textSize = MeasureTextEx(currentFont, text, currentFontSize, fontSpace),
-                   .id         = lblID++,
+                   .id         = lablesArray.size(),
                    .parentInxd = parentLayoutIndx,
                    .isHidden   = isHidden};
 
@@ -1013,7 +1039,7 @@ auto makeLable(char const*     text,
     }
 
     lablesArray.emplace_back(lable);
-    return (lblID - 1);
+    return lable.id;
 }
 auto updateLable(u32 const       lableID,
                  char const*     text,
@@ -1086,21 +1112,21 @@ auto makeRoundButton(Rectangle const & rect,
                      Color const &     txtColor,
                      u16 const         fontSize,
                      bool const        isHidden,
-                     u32 const         fontIndx = 0) -> i32
+                     u32 const         fontIndx = 0) -> u32
 {
-    i32 const layid = initRoundLayout(rect,
+    u32 const layid = initRoundLayout(rect,
                                       borderRoundness,
                                       borderThickness,
                                       borderColor,
                                       isHidden);
-    RA_Util::checkAtRuntime((layid < 0), "layout id is negative");
-    i32 const lblid = makeLable(text, txtColor, fontIndx, fontSize, Vector2 {}, 2.f, isHidden, layid);
-    RA_Util::checkAtRuntime((lblid < 0), "lable id is negative");
-    i32 const btnid = initRoundButton(layid,
+    // RA_Util::checkAtRuntime((layid < 0), "layout id is negative");
+    u32 const lblid = makeLable(text, txtColor, fontIndx, fontSize, Vector2 {}, 2.f, isHidden, layid);
+    // RA_Util::checkAtRuntime((lblid < 0), "lable id is negative");
+    u32 const btnid = initRoundButton(layid,
                                       lblid
                                       /* , i32 const iconIndx*/,
                                       isHidden);
-    RA_Util::checkAtRuntime((btnid < 0), "btn id is negative");
+    // RA_Util::checkAtRuntime((btnid < 0), "btn id is negative");
     return btnid;
 }
 
@@ -1425,6 +1451,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     Player* wonPlayer {nullptr};
 
     // UI elements init
+    RA_UI::initUI();
     // reset btn ui
     i32 const resetBtnID = RA_UI::
         makeRoundButton(Rectangle {.x = 50.f,
@@ -1566,6 +1593,9 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 if (CheckCollisionPointRec(mousePos, RA_UI::getBtnRect(resetBtnID)))
                 {
                     canReset = true;
+#if defined(PLATFORM_ANDROID)
+                    OpenURL("https://www.google.com");
+#endif
                 }
             }
             else if (IsKeyPressed(KEY_ESCAPE))
@@ -1591,6 +1621,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
                 iColor[0] = currentPlayer->rectColor.r;
                 iColor[1] = currentPlayer->rectColor.g;
                 iColor[2] = currentPlayer->rectColor.b;
+                RA_UI::cleanUI();
                 break;
             }
         }
@@ -1947,9 +1978,6 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     // clean-up
 
     ClearBackground(BLANK);
-    // zero out ui mem just in case of android backbutton ui bugg
-    if (!RA_UI::cleanUI())
-        std::cerr << "error : ui not cleaned properly";
     EndDrawing();
     UnloadMusicStream(music);
     b2DestroyWorld(worldID);

@@ -23,6 +23,9 @@ if(HAS_EXE)
 
 # other target: target is Android
 else()
+  find_package(JNI REQUIRED)
+  include_directories(${JNI_INCLUDE_DIRS})
+
   add_library(${P_OUT_NAME} ${P_LIB_TYPE} ${mysrc_exe})
   AndroidSetup(${P_OUT_NAME})
 endif(HAS_EXE)
