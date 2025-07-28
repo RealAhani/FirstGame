@@ -1373,7 +1373,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
     SetWindowSize(gWidth, gHeight);
 
     auto const fps = GetMonitorRefreshRate(0);
-    SetTargetFPS(fps);
+    SetTargetFPS(0);
     // toggle Full screen after the above setup
     // bc if user has 2 monitor we want to run on focused screen
     ToggleFullscreen();
@@ -1399,9 +1399,7 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
 
     // box2d init of the world of the game (box2d-related)
     // Simulating setting (box2d-related)
-    b2WorldId const     worldID = RA_Particle::initWorldOfBox2d();
-    constexpr f32 const timeStep {1.f / (60)};
-    i32 const           subStepCount {3};  // for 60HZ monitor its 3
+    b2WorldId const worldID = RA_Particle::initWorldOfBox2d();
     // init memory for particles
     constexpr u16 const                 particleCount {1000};
     std::array<Particle, particleCount> particles {};
@@ -1646,6 +1644,10 @@ auto main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) -> int
             // physiques update
             {
                 // box2d Update world state (box2d-related)
+                f32 const           fps = GetFPS();
+                constexpr i32 const subStepCount {3};
+                f32 const           timeStep = 1.f /
+                                     ((fps > 120) ? (fps / subStepCount) : (fps));
                 b2World_Step(worldID, timeStep, subStepCount);
             }
             // update game state
