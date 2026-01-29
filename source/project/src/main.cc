@@ -145,6 +145,105 @@ auto drawTextSDF(Font const &    font,
 namespace RA_Util
 {
 
+
+template <typename T>
+concept ChronoDuration = requires
+{
+    typename T::rep;
+    typename T::period;
+}
+&&std::is_same_v<T, std::chrono::duration<typename T::rep, typename T::period>>;
+
+template <ChronoDuration Duration>
+class Timer
+{
+public:
+
+    using TimePoint = std::chrono::steady_clock::time_point;
+    using ClockType = std::chrono::steady_clock;
+
+public:
+
+    Timer() = default;
+
+    // Hard Reset
+    void Start(Duration const & howLong) noexcept
+    {
+        assert(howLong >= Duration::zero());
+
+        m_start    = ClockType::now();
+        m_duration = howLong;
+        m_elapsed  = Duration {};
+        m_active   = true;
+    }
+    void Pause() noexcept
+    {
+        if (!m_active)
+            return;
+        m_active = false;
+        m_elapsed += ElapsedSinceStart();
+    }
+    // Continue
+    void Resume() noexcept
+    {
+        if (m_active)
+            return;
+        m_active = true;
+        m_start  = ClockType::now();
+    }
+
+    [[nodiscard]]
+    bool IsFinished() const noexcept
+    {
+        return GetElapsed() >= m_duration;
+    }
+
+    void Reset() noexcept
+    {
+        m_active   = false;
+        m_start    = TimePoint {};
+        m_elapsed  = Duration {};
+        m_duration = Duration {};
+    }
+    // elapsed time is from start till now
+
+    [[nodiscard]]
+    Duration GetElapsed() const noexcept
+    {
+        if (!m_active)
+            return m_elapsed;
+        return m_elapsed + ElapsedSinceStart();
+    }
+
+    /*
+        / block the main thread its not good for low level tasks
+    */
+    // void SleepFor(Duration duration) noexcept
+    // {
+    //     if (duration <= Duration::zero())
+    //         return;
+
+    //     if (m_active)
+    //         Pause();
+
+    //     std::this_thread::sleep_for(duration);
+
+    //     if (m_active)
+    //         Resume();
+    // }
+
+private:
+
+    [[nodiscard]]
+    Duration ElapsedSinceStart() const noexcept
+    {
+        return std::chrono::duration_cast<Duration>(ClockType::now() - m_start);
+    }
+    Duration  m_duration {};
+    Duration  m_elapsed {};
+    TimePoint m_start {};
+    bool      m_active {false};
+};
 /*
  *@Goal: return the Time based on half period like a trangle wave
  *       using triangle wave for optimization for time in sending it to
