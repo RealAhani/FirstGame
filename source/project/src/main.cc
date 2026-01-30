@@ -244,6 +244,188 @@ private:
     TimePoint m_start {};
     bool      m_active {false};
 };
+
+template <ChronoDuration Duration>
+class TimerManager
+{
+    struct FTimerLifeTime;
+
+public:
+
+    using TimerType = Timer<Duration>;
+
+    // =========================
+    /*
+     / Handles are designed to be: trivially copyable, trivially comparable ,
+     trivially invalidatable
+       + Think of TimerHandle like this:
+            invalidatable index == UINT32_MAX → null handle
+            index != UINT32_MAX → points somewhere
+            generation mismatch → points to the past
+        NOTE: use isvalid() before usage of TimerHandle
+    */
+    // =========================
+    struct TimerHandle
+    {
+        uint32_t index      = UINT32_MAX;
+        uint32_t generation = 0;
+
+        [[nodiscard]]
+        bool IsValid() const noexcept
+        {
+            return index != UINT32_MAX;
+        }
+        // BeCarefull : you can invalidate the handle manually
+        void Invalidate() noexcept
+        {
+            index = UINT32_MAX;
+        }
+    };
+
+    // =========================
+    // Singleton Access
+    // =========================
+    [[nodiscard]]
+    static TimerManager & Get() noexcept
+    {
+        static TimerManager instance;
+        return instance;
+    }
+
+    // =========================
+    // Public API
+    // =========================
+    [[nodiscard]]
+    TimerHandle CreateTimer(void (*fptr)(), Duration const rate, bool const canLoop)
+    {
+        FTimerLifeTime entry;
+        entry.rate    = rate;
+        entry.canLoop = canLoop;
+        entry.timer.Start(rate);
+
+        uint32_t const index = static_cast<uint32_t>(m_timers.size());
+        m_timers.emplace_back(entry);
+        m_fptrs.emplace_back(fptr);
+        return TimerHandle {index, m_timers[index].generation};
+    }
+
+    /*Toggle the pause of the timer with togglePause true=pause false=resume*/
+    void StopTimer(TimerHandle const handle, bool const togglePause) noexcept
+    {
+        if (!IsHandleValid(handle))
+            return;
+
+        auto const & entry = m_timers[handle.index];
+
+        if (entry.timer.IsFinished())
+            return;
+
+        // pause the timer
+        if (togglePause)
+        {
+            entry.timer.Pause();
+        }
+        else  // Resume the timer
+        {
+            entry.timer.Resume();
+        }
+    }
+    void ForceEndTimer(TimerHandle const handle) noexcept
+    {
+        // sanity check
+        if (!IsHandleValid(handle))
+            return;
+        RemoveTimer(handle.index);
+        handle.Invalidate();
+    }
+
+    void Update()
+    {
+        for (uint32_t i = 0; i < m_timers.size();)
+        {
+            auto & entry = m_timers[i];
+
+            if (!entry.timer.IsFinished())
+            {
+                ++i;
+                continue;
+            }
+            else
+            {
+                // TODO: Invoke the function then remove or loop it again
+                m_fptrs[i]();
+                if (entry.canLoop)
+                {
+                    entry.timer.Start(entry.rate);
+                }
+                else
+                {
+                    RemoveTimer(i);
+                }
+                ++i;
+            }
+        }
+    }
+
+private:
+
+    // =========================
+    // Lifetime Data
+    // =========================
+    struct FTimerLifeTime
+    {
+        TimerType timer;
+        Duration  rate {};
+        uint32_t  generation {0};
+        bool      canLoop {false};
+    };
+
+    std::vector<FTimerLifeTime> m_timers;
+    std::vector<void (*)()>     m_fptrs;
+
+private:
+
+    // =========================
+    // Construction Control
+    // =========================
+    TimerManager()  = default;
+    ~TimerManager() = default;
+
+    TimerManager(TimerManager const &)             = delete;
+    TimerManager & operator=(TimerManager const &) = delete;
+    TimerManager(TimerManager &&)                  = delete;
+    TimerManager & operator=(TimerManager &&)      = delete;
+
+private:
+
+    // =========================
+    // Internal Helpers
+    // =========================
+    [[nodiscard]]
+    bool IsHandleValid(TimerHandle const handle) const noexcept
+    {
+        return handle.index < m_timers.size() &&
+               m_timers[handle.index].generation == handle.generation;
+    }
+
+    void RemoveTimer(uint32_t const index)
+    {
+        // Invalidate old handles
+        ++m_timers[index].generation;
+
+        uint32_t const last = static_cast<uint32_t>(m_timers.size() - 1);
+
+        if (index != last)
+        {
+            std::swap(m_timers[index], m_timers[last]);
+            std::swap(m_fptrs[index], m_fptrs[last]);
+        }
+
+        m_timers.pop_back();
+        m_fptrs.pop_back();
+    }
+};
+
 /*
  *@Goal: return the Time based on half period like a trangle wave
  *       using triangle wave for optimization for time in sending it to
